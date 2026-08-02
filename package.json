@@ -1,0 +1,23 @@
+{
+  "name": "intelligent-it-asset-management",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "frontend",
+    "electron"
+  ],
+  "scripts": {
+    "backend": "npm --prefix backend run start:dev",
+    "frontend": "npm --prefix frontend run dev",
+    "electron": "npm --prefix electron run start",
+    "ai": "python ai-service/app.py"
+  },
+  "dependencies": {
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.0",
+    "pg": "^8.11.0",
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.31"
+  }
+}

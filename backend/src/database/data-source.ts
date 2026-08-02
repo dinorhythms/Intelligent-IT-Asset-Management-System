@@ -1,0 +1,29 @@
+import 'dotenv/config';
+import { DataSource } from 'typeorm';
+import { AiResultEntity } from '../modules/ai/ai-result.entity';
+import { PredictiveResultEntity } from '../modules/analytics/predictive-result.entity';
+import { AssetEntity } from '../modules/asset/asset.entity';
+import { UserEntity } from '../modules/auth/user.entity';
+import { NotificationEntity } from '../modules/notifications/notification.entity';
+import { RequestEntity } from '../modules/request/request.entity';
+import { ServiceEntity } from '../modules/service/service.entity';
+
+export const AppDataSource = new DataSource({
+  type: 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT || 5432),
+  username: process.env.DB_USERNAME || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres',
+  database: process.env.DB_DATABASE || 'it_asset_db',
+  entities: [
+    UserEntity,
+    AssetEntity,
+    ServiceEntity,
+    RequestEntity,
+    PredictiveResultEntity,
+    NotificationEntity,
+    AiResultEntity,
+  ],
+  synchronize: true,
+  logging: false,
+});

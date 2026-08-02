@@ -1,0 +1,40 @@
+     │   └── desktop/      # Electron + React desktop app
+     │       └── src/      # Main, preload, renderer (Vite)                                                         Agentic AI for IT asset tracking &
+     ├── packages/                                                                                                  maintenance
+     │   ├── types/        # Shared TS interfaces (Asset, User, etc.)
+     │   ├── ui/           # Shared React components (Button, Card, DataTable, etc.)                                Context
+     │   └── config/       # Shared Tailwind config                                                                 57,955 tokens
+     ├── package.json      # Turborepo + npm workspaces                                                             29% used
+     └── turbo.json                                                                                                 $0.00 spent
+
+     Key features built:                                                                                            LSP
+                                                                                                                    LSPs are disabled
+     - QR Module — Generate/scan QR codes, public scan endpoint for mobile browsers
+     - AI Module — Chat, asset analysis, predictive maintenance, natural language queries via OpenAI
+     - Analytics Module — Dashboard stats, category breakdown, maintenance history
+     - Auth — JWT-based login/register with role-based access
+     - Shared UI — Button, Card, Badge, DataTable, AssetForm, StatusBadge
+
+     To get started:
+
+     cd it-asset-manager
+
+     # 1. Set up your .env
+     cp apps/api/.env.example apps/api/.env
+     # Edit apps/api/.env with your DATABASE_URL and OPENAI_API_KEY
+
+     # 2. Push DB schema (requires PostgreSQL running)                                                                ⬖ Getting started                ✕
+     npm run db:push
+                                                                                                                        OpenCode includes free models
+     # 3. Start dev                                                                                                     so you can start immediately.
+     npm run dev
+                                                                                                                        Connect from 75+ providers to
+     The web QR scanner works on any phone browser — no app install needed. The desktop app (packaged via               use other models, including
+     Electron) shares the same component library. The AI layer uses OpenAI GPT-4o-mini via managed API (no              Claude, GPT, Gemini etc
+
+  ┃                                                                                                                     Connect provider        /connect
+  ┃
+  ┃
+  ┃  Build · Big Pickle OpenCode Zen                                                                                /~
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   C:\Users\oladehinde kazeem                                                       58.0K (29%)  ctrl+p commands    • OpenCode 1.18.9

@@ -1,12 +1,39 @@
 {
   "name": "it-asset-electron",
   "version": "1.0.0",
+  "description": "Desktop shell for the Intelligent IT Asset Management System",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dev": "electron .",
+    "check": "node --check main.js && node --check preload.js",
+    "package": "electron-builder --win",
+    "package:mac": "electron-builder --mac",
+    "package:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.itasset.manager",
+    "productName": "IT Asset Manager",
+    "files": [
+      "main.js",
+      "preload.js"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "devDependencies": {
-    "electron": "^29.4.0"
+    "electron": "^29.4.0",
+    "electron-builder": "^24.13.3"
   },
   "dependencies": {
     "intelligent-it-asset-management": "file:.."

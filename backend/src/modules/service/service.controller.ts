@@ -16,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CreateServiceDto, UpdateServiceDto } from './service.dto';
 import { ServiceService } from './service.service';
 
 @ApiTags('services')
@@ -45,12 +46,10 @@ export class ServiceController {
       'Creates a service record and automatically triggers /ai/maintenance_schedule to compute the next maintenance date, updating asset_details.next_maintenance_date for the linked asset. The result is persisted in ai_service_results.',
   })
   @ApiBody({
-    type: Object,
-    description:
-      'Service payload. Use assetId to link an asset. Optional: usage_hours, last_maintenance_date, maintenance_interval_days.',
+    type: CreateServiceDto,
   })
   @ApiResponse({ status: 201, description: 'Service record created' })
-  create(@Body() body: any) {
+  create(@Body() body: CreateServiceDto) {
     return this.serviceService.create(body);
   }
 
@@ -61,7 +60,8 @@ export class ServiceController {
     description:
       'Updates the service record and re-runs /ai/maintenance_schedule, refreshing asset_details.next_maintenance_date.',
   })
-  update(@Param('id') id: string, @Body() body: any) {
+  @ApiBody({ type: UpdateServiceDto })
+  update(@Param('id') id: string, @Body() body: UpdateServiceDto) {
     return this.serviceService.update(id, body);
   }
 

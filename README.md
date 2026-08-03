@@ -73,9 +73,9 @@ original operation (asset/request/service) still completes.
 
 | Operation | Automatic AI trigger | Result stored in |
 | --------- | -------------------- | ---------------- |
-| `POST /assets` (create/update) | `/ai/predict` + `/ai/anomaly` with telemetry (`usage_hours`, `temperature`, `cpu_usage`, `vibration`, `load_factor`, `years_operation`) | `asset_details.predictiveScore` (latest), `predictive_results` (summary snapshot), `ai_service_results` (full response) |
-| `POST /requests` (maintenance/repair request) | `/ai/anomaly`; if anomalies are detected, `/ai/recommend` runs automatically | `ai_service_results` |
-| `POST /services` (service logged / maintenance completed) | `/ai/maintenance_schedule` | `asset_details.next_maintenance_date`, `ai_service_results` |
+| `/assets` (create/update) | `/ai/predict` + `/ai/anomaly` with telemetry (`usage_hours`, `temperature`, `cpu_usage`, `vibration`, `load_factor`, `years_operation`) | `asset_details.predictiveScore` (latest), `predictive_results` (summary snapshot), `ai_service_results` (full raw responses) |
+| `/requests` (maintenance/repair request) | `/ai/anomaly`; if anomalies are detected, `/ai/recommend` runs automatically | `predictive_results` (requestNo, anomalyDetected, recommendedActions summary), `ai_service_results` (full raw responses) |
+| `/services` (service logged / maintenance completed) | `/ai/maintenance_schedule` | `asset_details.nextMaintenanceDate`, `predictive_results` (assetId, nextMaintenanceDate summary), `ai_service_results` (full raw response) |
 | Every 5 minutes (background task) | `/ai/health` liveness check | logs AI service status |
 
 `predictiveScore` in `asset_details` is therefore updated automatically by the
@@ -83,6 +83,13 @@ AI service whenever an asset is created or updated - you do not need to set it
 manually. Telemetry supplied at asset creation/update is also stored on the
 asset (`usageHours`, `temperature`, `cpuUsage`, `vibration`, `loadFactor`,
 `yearsOperation`) and reused by later request anomaly checks.
+
+Swagger input forms are available at `http://localhost:3001/api/docs` for
+registration/login, assets, requests, and service records. Authenticate with
+the bearer token returned by `POST /auth/login` before testing protected CRUD
+endpoints. The `ai_service_results` table automatically stores the complete raw
+responses from every AI call; `predictive_results` stores the compact summaries
+used by the dashboard.
 
 ### Example flows
 

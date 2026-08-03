@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { Public } from './public.decorator';
 import { Roles } from './roles.decorator';
+import { LoginDto, RegisterDto } from './auth.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -14,7 +15,8 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
-  register(@Body() body: any) {
+  @ApiBody({ type: RegisterDto })
+  register(@Body() body: RegisterDto) {
     return this.authService.register(body);
   }
 
@@ -22,7 +24,8 @@ export class AuthController {
   @Post('login')
   @ApiOperation({ summary: 'Log in a user' })
   @ApiResponse({ status: 200, description: 'User logged in successfully' })
-  login(@Body() body: any) {
+  @ApiBody({ type: LoginDto })
+  login(@Body() body: LoginDto) {
     return this.authService.login(body);
   }
 

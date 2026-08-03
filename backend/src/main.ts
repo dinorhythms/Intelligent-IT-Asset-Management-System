@@ -37,7 +37,7 @@ async function bootstrap() {
     const config = new DocumentBuilder()
       .setTitle('IT Asset Management API')
       .setDescription(
-        'API documentation for the Intelligent IT Asset Management System',
+        'API documentation for the Intelligent IT Asset Management System. Assets automatically run /ai/predict and /ai/anomaly; requests run /ai/anomaly and /ai/recommend; service records run /ai/maintenance_schedule. Full AI responses are retained in ai_service_results.',
       )
       .setVersion('1.0')
       .addBearerAuth()

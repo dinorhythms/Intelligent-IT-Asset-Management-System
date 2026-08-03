@@ -23,15 +23,22 @@ async function seed() {
   const existing = await userRepository.findOne({
     where: { username: 'admin' },
   });
-  if (!existing) {
-    await userRepository.save(
-      userRepository.create({
-        username: 'admin',
-        passwordHash: await bcrypt.hash('admin123', 10),
-        role: 'admin',
-      }),
-    );
-  }
+  const passwordHash = await bcrypt.hash('admin123', 10);
+  await userRepository.save(
+    existing
+      ? {
+          ...existing,
+          passwordHash,
+          role: 'admin',
+          loginStatus: 'active',
+        }
+      : userRepository.create({
+          username: 'admin',
+          passwordHash,
+          role: 'admin',
+          loginStatus: 'active',
+        }),
+  );
 
   if ((await assetRepository.count()) === 0) {
     await assetRepository.save(

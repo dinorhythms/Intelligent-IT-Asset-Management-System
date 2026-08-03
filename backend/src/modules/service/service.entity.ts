@@ -29,6 +29,18 @@ export class ServiceEntity {
   @Column({ nullable: true })
   serviceManager: string;
 
+  @Column({ type: 'date', nullable: true })
+  serviceDate: string;
+
+  @Column({ nullable: true })
+  technician: string;
+
+  @Column({ type: 'float', nullable: true })
+  cost: number;
+
+  @Column({ nullable: true })
+  notes: string;
+
   @Column({ type: 'float', nullable: true })
   predictiveImpact: number;
 

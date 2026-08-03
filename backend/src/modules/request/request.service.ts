@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiService } from '../ai/ai.service';
 import { AssetEntity } from '../asset/asset.entity';
+import { PredictiveResultEntity } from '../analytics/predictive-result.entity';
 import { RequestEntity } from './request.entity';
 
 const TELEMETRY_KEYS = [
@@ -23,6 +24,8 @@ export class RequestService {
     private readonly requestRepository: Repository<RequestEntity>,
     @InjectRepository(AssetEntity)
     private readonly assetRepository: Repository<AssetEntity>,
+    @InjectRepository(PredictiveResultEntity)
+    private readonly predictiveRepository: Repository<PredictiveResultEntity>,
     private readonly aiService: AiService,
   ) {}
 
@@ -108,17 +111,28 @@ export class RequestService {
         `[auto-ai] Request ${request.requestNo} anomaly_detected=${anomaly.anomaly_detected}`,
       );
 
+      let recommendedActions: unknown = [];
       if (anomaly.anomaly_detected) {
         const recommendation = await this.aiService.recommend({
           ...payload,
           anomaly_detected: anomaly.anomaly_detected,
         });
+        recommendedActions = recommendation.recommended_actions ?? [];
         this.logger.log(
           `[auto-ai] Request ${request.requestNo} recommendations: ${JSON.stringify(
-            recommendation.recommended_actions,
+            recommendedActions,
           )}`,
         );
       }
+
+      await this.predictiveRepository.save(
+        this.predictiveRepository.create({
+          assetId: request.assetIdentifier,
+          requestNo: request.requestNo,
+          anomalyDetected: Boolean(anomaly?.anomaly_detected),
+          recommendedActions,
+        }),
+      );
     } catch (error) {
       this.logger.error(
         `[auto-ai] Anomaly pipeline failed for ${request.requestNo}: ${

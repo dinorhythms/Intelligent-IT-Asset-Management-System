@@ -14,6 +14,9 @@ export class UserEntity {
   @Column({ unique: true })
   username: string;
 
+  @Column({ nullable: true, unique: true })
+  email: string;
+
   @Column()
   passwordHash: string;
 

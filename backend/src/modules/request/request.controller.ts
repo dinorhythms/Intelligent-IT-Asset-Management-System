@@ -16,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CreateRequestDto, UpdateRequestDto } from './request.dto';
 import { RequestService } from './request.service';
 
 @ApiTags('requests')
@@ -45,19 +46,18 @@ export class RequestController {
       'Creates a request and automatically triggers the AI service: /ai/anomaly is called with the asset telemetry (taken from the request body or the matching asset), and if anomalies are detected /ai/recommend is called to generate recommended maintenance actions. Results are persisted in ai_service_results.',
   })
   @ApiBody({
-    type: Object,
-    description:
-      'Request payload. Optional telemetry fields: usage_hours, temperature, cpu_usage, vibration, load_factor, years_operation.',
+    type: CreateRequestDto,
   })
   @ApiResponse({ status: 201, description: 'Request created successfully' })
-  create(@Body() body: any) {
+  create(@Body() body: CreateRequestDto) {
     return this.requestService.create(body);
   }
 
   @Put(':id')
   @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Update a request' })
-  update(@Param('id') id: string, @Body() body: any) {
+  @ApiBody({ type: UpdateRequestDto })
+  update(@Param('id') id: string, @Body() body: UpdateRequestDto) {
     return this.requestService.update(id, body);
   }
 

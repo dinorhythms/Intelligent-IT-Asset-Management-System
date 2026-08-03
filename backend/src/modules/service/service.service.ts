@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiService } from '../ai/ai.service';
 import { AssetEntity } from '../asset/asset.entity';
+import { PredictiveResultEntity } from '../analytics/predictive-result.entity';
 import { ServiceEntity } from './service.entity';
 
 @Injectable()
@@ -14,6 +15,8 @@ export class ServiceService {
     private readonly serviceRepository: Repository<ServiceEntity>,
     @InjectRepository(AssetEntity)
     private readonly assetRepository: Repository<AssetEntity>,
+    @InjectRepository(PredictiveResultEntity)
+    private readonly predictiveRepository: Repository<PredictiveResultEntity>,
     private readonly aiService: AiService,
   ) {}
 
@@ -69,6 +72,12 @@ export class ServiceService {
       );
 
       if (service.assetId) {
+        await this.predictiveRepository.save(
+          this.predictiveRepository.create({
+            assetId: service.assetId,
+            nextMaintenanceDate: schedule.next_maintenance_date,
+          }),
+        );
         const asset = await this.assetRepository.findOne({
           where: { assetId: service.assetId },
         });
@@ -105,7 +114,10 @@ export class ServiceService {
       usage_hours:
         body.usage_hours ?? body.usageHours ?? asset?.usageHours ?? 0,
       last_maintenance_date:
-        body.last_maintenance_date ?? body.lastMaintenanceDate,
+        body.last_maintenance_date ??
+        body.lastMaintenanceDate ??
+        body.serviceDate ??
+        asset?.nextMaintenanceDate,
       maintenance_interval_days:
         body.maintenance_interval_days ?? body.maintenanceIntervalDays ?? 90,
     };

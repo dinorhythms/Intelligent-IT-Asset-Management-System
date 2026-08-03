@@ -17,6 +17,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(body.password || 'password123', 10);
     const user = this.userRepository.create({
       username: body.username,
+      email: body.email,
       passwordHash,
       role: body.role || 'technician',
       loginStatus: 'active',
@@ -24,7 +25,7 @@ export class AuthService {
     await this.userRepository.save(user);
     return {
       message: 'User registered',
-      user: { username: user.username, role: user.role },
+      user: { username: user.username, email: user.email, role: user.role },
     };
   }
 
@@ -35,7 +36,9 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const valid = await bcrypt.compare(body.password || '', user.passwordHash);
+    console.log('time to check password error:', valid);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
+    console.log('password passed:');
 
     user.lastLogin = new Date();
     user.loginStatus = 'active';

@@ -11,6 +11,7 @@
     "backend": "npm --prefix backend run start:dev",
     "frontend": "npm --prefix frontend run dev",
     "electron": "npm --prefix electron run start",
+    "electron:build": "npm --prefix electron run package",
     "ai": "python ai-service/app.py"
   },
   "dependencies": {

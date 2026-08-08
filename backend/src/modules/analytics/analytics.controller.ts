@@ -11,7 +11,7 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('dashboard')
-  @Roles('admin', 'manager', 'technician')
+  @Roles('admin', 'technician')
   @ApiOperation({ summary: 'Get dashboard analytics' })
   @ApiResponse({
     status: 200,
@@ -22,7 +22,7 @@ export class AnalyticsController {
   }
 
   @Get('export')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'technician')
   @ApiOperation({ summary: 'Export analytics data' })
   @ApiQuery({
     name: 'format',

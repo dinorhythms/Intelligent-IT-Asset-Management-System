@@ -39,7 +39,7 @@ export class ServiceController {
   }
 
   @Post()
-  @Roles('admin', 'manager')
+  @Roles('admin', 'technician')
   @ApiOperation({
     summary: 'Log a service / maintenance completion',
     description:
@@ -54,7 +54,7 @@ export class ServiceController {
   }
 
   @Put(':id')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'technician')
   @ApiOperation({
     summary: 'Update a service record',
     description:

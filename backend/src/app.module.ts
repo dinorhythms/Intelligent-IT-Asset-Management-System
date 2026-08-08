@@ -6,10 +6,17 @@ import { AdminModule } from './modules/admin/admin.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AssetModule } from './modules/asset/asset.module';
+import { AssignmentModule } from './modules/assignment/assignment.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { CategoryModule } from './modules/category/category.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { NotificationModule } from './modules/notifications/notification.module';
+import { QrCodeModule } from './modules/qrcode/qrcode.module';
 import { RequestModule } from './modules/request/request.module';
 import { ServiceModule } from './modules/service/service.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { UsersModule } from './modules/users/users.module';
+import { VendorModule } from './modules/vendor/vendor.module';
 
 @Module({
   imports: [
@@ -22,6 +29,13 @@ import { ServiceModule } from './modules/service/service.module';
     NotificationModule,
     AdminModule,
     AiModule,
+    SettingsModule,
+    AuditModule,
+    UsersModule,
+    AssignmentModule,
+    QrCodeModule,
+    CategoryModule,
+    VendorModule,
   ],
   controllers: [HealthController],
 })

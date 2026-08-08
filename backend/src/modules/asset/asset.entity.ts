@@ -14,6 +14,9 @@ export class AssetEntity {
   @Column({ unique: true })
   assetId: string;
 
+  @Column({ nullable: true, unique: true })
+  uniqueId: string;
+
   @Column()
   assetName: string;
 
@@ -22,6 +25,39 @@ export class AssetEntity {
 
   @Column({ nullable: true })
   assetType: string;
+
+  @Column({ nullable: true })
+  category: string;
+
+  @Column({ nullable: true })
+  make: string;
+
+  @Column({ nullable: true })
+  model: string;
+
+  @Column({ nullable: true })
+  serialNumber: string;
+
+  @Column({ nullable: true })
+  macAddress: string;
+
+  @Column({ nullable: true })
+  vendor: string;
+
+  @Column({ nullable: true })
+  vendorId: string;
+
+  @Column({ type: 'float', nullable: true })
+  cost: number;
+
+  @Column({ type: 'date', nullable: true })
+  deliveryDate: string;
+
+  @Column({ nullable: true })
+  receivedBy: string;
+
+  @Column({ nullable: true })
+  warranty: string;
 
   @Column({ nullable: true })
   assetStatus: string;
@@ -35,8 +71,11 @@ export class AssetEntity {
   @Column({ nullable: true })
   assetLocation: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   qrCode: string;
+
+  @Column({ type: 'text', nullable: true })
+  qrCodeUrl: string;
 
   @Column({ type: 'float', nullable: true })
   predictiveScore: number;

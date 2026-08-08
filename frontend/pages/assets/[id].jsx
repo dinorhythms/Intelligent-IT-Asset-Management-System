@@ -14,7 +14,14 @@ import {
 import Pill from '../../components/Pill';
 import Modal from '../../components/Modal';
 import AssetForm from '../../components/AssetForm';
-import { formatDate, formatNumber, riskLevel } from '../../lib/utils';
+import { RiskBadge, RiskLegend } from '../../components/Risk';
+import { formatCurrency, formatDate, formatNumber, riskLevel } from '../../lib/utils';
+
+const STATUS_TONE = {
+  Available: 'success',
+  Assigned: 'info',
+  Returned: 'neutral',
+};
 
 export default function AssetDetailPage() {
   const router = useRouter();
@@ -32,6 +39,7 @@ export default function AssetDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [valuation, setValuation] = useState(null);
 
   const load = useCallback(async () => {
     if (!assetId) return;
@@ -47,6 +55,10 @@ export default function AssetDetailPage() {
             ['predict', 'anomaly'].includes(entry.kind),
         ),
       );
+      api
+        .get(`/assets/${assetId}/value`)
+        .then((value) => value && setValuation(value))
+        .catch(() => setValuation(null));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -123,12 +135,19 @@ export default function AssetDetailPage() {
   const detailRows = [
     ['Asset ID', asset.assetId],
     ['Asset Name', asset.assetName],
-    ['Identifier', asset.assetIdentifier],
-    ['Type', asset.assetType],
+    ['Category', asset.category || asset.assetType],
+    ['Make', asset.make],
+    ['Model', asset.model],
+    ['Serial Number', asset.serialNumber],
+    ['MAC Address', asset.macAddress],
+    ['Vendor', asset.vendor || asset.vendorId],
+    ['Delivery Date', formatDate(asset.deliveryDate)],
+    ['Received By', asset.receivedBy],
+    ['Warranty', asset.warranty],
     ['Status', asset.assetStatus],
     ['Lifecycle', asset.assetLifecycle],
-    ['Manufacturer', asset.manufacturer],
     ['Location', asset.assetLocation],
+    ['Purchase Cost', formatCurrency(asset.cost)],
     ['Usage Hours', formatNumber(asset.usageHours, 0)],
     ['Temperature', `${formatNumber(asset.temperature)} °C`],
     ['CPU Usage', `${formatNumber(asset.cpuUsage)}%`],
@@ -174,8 +193,8 @@ export default function AssetDetailPage() {
                 <h1 className="text-2xl font-semibold">{asset.assetName}</h1>
                 <p className="text-sm text-slate-500">{asset.assetId}</p>
               </div>
-              <Pill tone={asset.assetStatus === 'active' ? 'success' : 'neutral'}>
-                {asset.assetStatus}
+              <Pill tone={STATUS_TONE[asset.assetStatus] || 'neutral'}>
+                {asset.assetStatus || 'Unknown'}
               </Pill>
             </div>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
@@ -204,9 +223,7 @@ export default function AssetDetailPage() {
                   {formatNumber(latestPrediction.predictiveScore)}
                 </p>
                 <div className="mt-2">
-                  <Pill tone={riskLevel(latestPrediction.predictiveScore).tone}>
-                    {riskLevel(latestPrediction.predictiveScore).label}
-                  </Pill>
+                  <RiskBadge score={latestPrediction.predictiveScore} />
                 </div>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
@@ -231,7 +248,48 @@ export default function AssetDetailPage() {
                 Showing stored score — the AI service may be offline. Run the analysis to refresh.
               </p>
             )}
+            <div className="mt-4">
+              <RiskLegend />
+            </div>
           </div>
+
+          {valuation && (
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Cost & Valuation</h2>
+                <Pill tone="info">AI recommendation</Pill>
+              </div>
+              {valuation.cost ? (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Purchase Cost</p>
+                    <p className="mt-1 text-2xl font-semibold">{formatCurrency(valuation.cost)}</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {valuation.depreciationPercent}% depreciated
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Estimated Current Value</p>
+                    <p className="mt-1 text-2xl font-semibold">{formatCurrency(valuation.estimatedValue)}</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Based on usage ({valuation.basis?.effectiveYears} yrs) and {valuation.serviceCount} service record(s)
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
+                    <p className="text-xs uppercase tracking-wide text-emerald-400">Recommended Auction Value</p>
+                    <p className="mt-1 text-2xl font-semibold text-emerald-300">
+                      {formatCurrency(valuation.recommendedAuctionValue)}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Floor (salvage): {formatCurrency(valuation.salvageValue)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">{valuation.note}</p>
+              )}
+            </div>
+          )}
 
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
             <h2 className="mb-4 text-lg font-semibold">Recent AI Activity</h2>
@@ -285,14 +343,33 @@ export default function AssetDetailPage() {
               <p className="text-sm text-slate-500">QR code unavailable.</p>
             )}
             <p className="mt-3 text-xs text-slate-500">
-              Scan with the QR Scan page to view this asset from any authenticated device.
+              Scans open a public page at{' '}
+              <code className="rounded bg-slate-800 px-1 py-0.5 text-slate-300">/view/{asset.uniqueId || asset.assetId}</code>{' '}
+              showing the device and its assigned user. No login required.
             </p>
             <Link
-              href="/scan"
+              href={`/view/${asset.uniqueId || asset.assetId}`}
               className="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-emerald-500/40 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/10"
             >
-              Open scanner
+              Open public view
             </Link>
+            {permission.predict && (
+              <Link
+                href="/scan"
+                className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+              >
+                Open scanner
+              </Link>
+            )}
+            {asset.qrCode && (
+              <a
+                href={asset.qrCode}
+                download={`${asset.assetId}-qr.png`}
+                className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+              >
+                Download QR
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -305,10 +382,10 @@ export default function AssetDetailPage() {
           <>
             <GhostButton onClick={() => setEditOpen(false)}>Cancel</GhostButton>
             <PrimaryButton
-              onClick={() => document.querySelector('#asset-form-submit')?.click()}
+              onClick={() => document.getElementById('asset-form')?.requestSubmit()}
               disabled={submitting}
             >
-              {submitting ? 'Saving…' : 'Save'}
+              {submitting ? 'Saving…' : 'Save Changes'}
             </PrimaryButton>
           </>
         }

@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --slate-50: 248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --slate-950: 2 6 23;
+}
+
+.light {
+  --slate-50: 2 6 23;
+  --slate-100: 15 23 42;
+  --slate-200: 30 41 59;
+  --slate-300: 51 65 85;
+  --slate-400: 71 85 105;
+  --slate-500: 100 116 139;
+  --slate-600: 100 116 139;
+  --slate-700: 203 213 225;
+  --slate-800: 226 232 240;
+  --slate-900: 241 245 249;
+  --slate-950: 255 255 255;
+}
+
 body {
   @apply bg-slate-950 text-slate-100 min-h-screen;
+}
+
+/* In light mode the app's dark-theme accent text colors become washed out.
+   Map them to darker equivalents so links, pills and alerts stay readable. */
+.light .text-emerald-300,
+.light .text-emerald-400 {
+  color: #047857;
+}
+.light .text-red-200,
+.light .text-red-300 {
+  color: #b91c1c;
+}
+.light .text-amber-200,
+.light .text-amber-300 {
+  color: #b45309;
+}
+.light .text-sky-200,
+.light .text-sky-300 {
+  color: #0369a1;
 }

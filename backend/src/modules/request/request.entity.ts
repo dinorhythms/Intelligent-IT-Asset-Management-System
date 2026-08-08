@@ -14,13 +14,19 @@ export class RequestEntity {
   @Column({ unique: true })
   requestNo: string;
 
-  @Column()
+  @Column({ nullable: true })
+  category: string;
+
+  @Column({ type: 'text', nullable: true })
+  reason: string;
+
+  @Column({ nullable: true })
   assetName: string;
 
-  @Column()
+  @Column({ nullable: true })
   assetType: string;
 
-  @Column()
+  @Column({ nullable: true })
   assetIdentifier: string;
 
   @Column({ default: 1 })
@@ -37,6 +43,18 @@ export class RequestEntity {
 
   @Column({ default: 'normal' })
   requestPriority: string;
+
+  @Column({ nullable: true })
+  requestedBy: string;
+
+  @Column({ nullable: true })
+  approvedBy: string;
+
+  @Column({ nullable: true })
+  rejectedBy: string;
+
+  @Column({ type: 'text', nullable: true })
+  reviewComment: string;
 
   @CreateDateColumn()
   createdAt: Date;

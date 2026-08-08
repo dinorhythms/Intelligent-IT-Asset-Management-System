@@ -1,9 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { AiService } from '../ai/ai.service';
 import { AssetEntity } from '../asset/asset.entity';
 import { PredictiveResultEntity } from '../analytics/predictive-result.entity';
+import { AuditService } from '../audit/audit.service';
+import { UserEntity } from '../auth/user.entity';
+import { MailerService } from '../mailer/mailer.service';
 import { ServiceEntity } from './service.entity';
 
 @Injectable()
@@ -17,27 +26,72 @@ export class ServiceService {
     private readonly assetRepository: Repository<AssetEntity>,
     @InjectRepository(PredictiveResultEntity)
     private readonly predictiveRepository: Repository<PredictiveResultEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
     private readonly aiService: AiService,
+    private readonly auditService: AuditService,
+    private readonly mailerService: MailerService,
   ) {}
 
   async findAll() {
-    return this.serviceRepository.find();
+    return this.serviceRepository.find({
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findOne(id: string) {
     return this.serviceRepository.findOne({ where: { serviceId: id } });
   }
 
+  private async validateTechnician(technician?: string): Promise<void> {
+    if (!technician || !String(technician).trim()) {
+      throw new BadRequestException(
+        'A technician must be assigned to a service record',
+      );
+    }
+    const user = await this.userRepository
+      .findOne({ where: { username: String(technician).trim() } })
+      .catch(() => null);
+    if (user && user.role !== 'technician') {
+      throw new BadRequestException(
+        'The selected technician must have the Technician role',
+      );
+    }
+  }
+
   async create(body: any) {
+    await this.validateTechnician(body.technician);
     const service = this.serviceRepository.create({
       ...body,
-      serviceId: body.serviceId || `SRV-${Date.now()}`,
+      serviceId: randomUUID(),
       serviceDesc: body.serviceDesc || 'Service request',
       serviceStatus: body.serviceStatus || 'active',
       predictiveImpact: body.predictiveImpact || 0.75,
       dashboardView: body.dashboardView !== false,
     }) as unknown as ServiceEntity;
     const saved = await this.serviceRepository.save(service);
+    await this.auditService.log('service.created', {
+      actor: body.technician || undefined,
+      entityType: 'service',
+      entityId: saved.serviceId,
+      details: {
+        serviceDesc: saved.serviceDesc,
+        assetId: saved.assetId,
+        technician: saved.technician,
+        serviceStatus: saved.serviceStatus,
+      },
+    });
+    void this.mailerService.sendToAdminAndTechnicians(
+      'Service record created',
+      [
+        `A new service record has been created.`,
+        `Service: ${saved.serviceDesc}`,
+        `Asset: ${saved.assetId || '—'}`,
+        `Technician: ${saved.technician || '—'}`,
+        `Status: ${saved.serviceStatus}`,
+        `Date: ${saved.serviceDate || '—'}`,
+      ],
+    );
     void this.runSchedulePipeline(saved, body);
     return saved;
   }
@@ -46,9 +100,42 @@ export class ServiceService {
     const service = await this.serviceRepository.findOne({
       where: { serviceId: id },
     });
-    if (!service) return null;
-    Object.assign(service, body);
+    if (!service) throw new NotFoundException('Service record not found');
+
+    if (body.serviceId && body.serviceId !== service.serviceId) {
+      throw new BadRequestException(
+        'Service ID is immutable and cannot be changed',
+      );
+    }
+    if (body.technician !== undefined) {
+      await this.validateTechnician(body.technician);
+    }
+
+    const { serviceId, id: rowId, createdAt, updatedAt, ...editable } = body;
+    Object.assign(service, editable);
     const saved = await this.serviceRepository.save(service);
+    await this.auditService.log('service.updated', {
+      actor: body.technician || undefined,
+      entityType: 'service',
+      entityId: saved.serviceId,
+      details: {
+        serviceDesc: saved.serviceDesc,
+        assetId: saved.assetId,
+        technician: saved.technician,
+        serviceStatus: saved.serviceStatus,
+      },
+    });
+    void this.mailerService.sendToAdminAndTechnicians(
+      'Service record updated',
+      [
+        `Service record ${saved.serviceId} has been updated.`,
+        `Service: ${saved.serviceDesc}`,
+        `Asset: ${saved.assetId || '—'}`,
+        `Technician: ${saved.technician || '—'}`,
+        `Status: ${saved.serviceStatus}`,
+        `Next maintenance date is being recalculated.`,
+      ],
+    );
     void this.runSchedulePipeline(saved, body);
     return saved;
   }
@@ -58,6 +145,12 @@ export class ServiceService {
       where: { serviceId: id },
     });
     if (service) {
+      await this.auditService.log('service.deleted', {
+        actor: service.technician || undefined,
+        entityType: 'service',
+        entityId: service.serviceId,
+        details: { serviceDesc: service.serviceDesc },
+      });
       await this.serviceRepository.remove(service);
     }
     return { deleted: true, id };

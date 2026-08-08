@@ -14,12 +14,20 @@ import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { Alert, Spinner, EmptyState } from '../components/Ui';
 import Pill from '../components/Pill';
+import { RiskBadge } from '../components/Risk';
 import { formatDate, formatNumber, riskLevel } from '../lib/utils';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
+const STATUS_TONE = {
+  Available: 'success',
+  Assigned: 'info',
+  Returned: 'neutral',
+};
+
 export default function DashboardPage() {
   const { user, can } = useAuth();
+  const isAdminTech = ['admin', 'technician'].includes(user?.role);
   const [assets, setAssets] = useState([]);
   const [requests, setRequests] = useState([]);
   const [services, setServices] = useState([]);
@@ -34,7 +42,7 @@ export default function DashboardPage() {
       try {
         const [assetData, requestData, serviceData] = await Promise.all([
           api.get('/assets'),
-          api.get('/requests'),
+          api.get(isAdminTech ? '/requests' : '/requests/mine'),
           api.get('/services'),
         ]);
         if (!active) return;
@@ -49,11 +57,7 @@ export default function DashboardPage() {
         }
       } catch (err) {
         if (active) {
-          setError(
-            err instanceof ApiError
-              ? err.message
-              : 'Unable to load dashboard data.',
-          );
+          setError(err instanceof ApiError ? err.message : 'Unable to load dashboard data.');
         }
       } finally {
         if (active) setLoading(false);
@@ -62,18 +66,20 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [can.analytics]);
+  }, [can.analytics, isAdminTech]);
 
   const summary = useMemo(() => {
-    const openRequests = requests.filter((r) => r.requestStatus === 'open').length;
-    const activeAssets = assets.filter((a) => a.assetStatus === 'active').length;
+    const openRequests = requests.filter(
+      (r) => r.approvalStatus === 'pending' || r.requestStatus === 'open',
+    ).length;
+    const assignedAssets = assets.filter((a) => a.assetStatus === 'Assigned').length;
     const scored = assets.filter((a) => a.predictiveScore !== null && a.predictiveScore !== undefined);
     const avgRisk =
       scored.length > 0
         ? scored.reduce((sum, a) => sum + Number(a.predictiveScore || 0), 0) / scored.length
         : null;
     const critical = scored.filter((a) => riskLevel(a.predictiveScore).tone === 'danger').length;
-    return { openRequests, activeAssets, avgRisk, critical };
+    return { openRequests, assignedAssets, avgRisk, critical };
   }, [assets, requests]);
 
   const chartData = useMemo(() => {
@@ -87,10 +93,8 @@ export default function DashboardPage() {
       datasets: [
         {
           label: 'Assets',
-          data: Object.keys(statusCounts).length
-            ? Object.values(statusCounts)
-            : [0],
-          backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6'],
+          data: Object.keys(statusCounts).length ? Object.values(statusCounts) : [0],
+          backgroundColor: ['#10b981', '#3b82f6', '#94a3b8', '#f59e0b', '#ef4444'],
           borderRadius: 6,
         },
       ],
@@ -109,15 +113,17 @@ export default function DashboardPage() {
   if (loading) return <Spinner label="Loading dashboard…" />;
 
   const cards = [
-    { label: 'Assets Managed', value: assets.length, sub: `${summary.activeAssets} active`, href: '/assets' },
-    { label: 'Open Requests', value: summary.openRequests, sub: `${requests.length} total`, href: '/requests' },
+    { label: 'Assets Managed', value: assets.length, sub: `${summary.assignedAssets} assigned`, href: '/assets' },
+    { label: isAdminTech ? 'Open Requests' : 'My Requests', value: summary.openRequests, sub: `${requests.length} total`, href: '/requests' },
     { label: 'Service Records', value: services.length, sub: 'maintenance history', href: '/services' },
-    {
-      label: 'Avg Predictive Risk',
-      value: summary.avgRisk === null ? '—' : `${Math.round(summary.avgRisk * 100)}%`,
-      sub: `${summary.critical} critical`,
-      href: '/analytics',
-    },
+    can.analytics
+      ? {
+          label: 'Avg Predictive Risk',
+          value: summary.avgRisk === null ? '—' : `${Math.round(summary.avgRisk * 100)}%`,
+          sub: `${summary.critical} critical`,
+          href: '/analytics',
+        }
+      : { label: 'My Pending Requests', value: summary.openRequests, sub: 'awaiting approval', href: '/requests' },
   ];
 
   return (
@@ -130,18 +136,20 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-slate-400">
             {can.analytics
               ? 'Overview of assets, maintenance requests, service history and predictive health.'
-              : 'Read-only overview of assets, maintenance requests and service history.'}
+              : 'Overview of assets, your maintenance requests and service history.'}
           </p>
         </div>
-        <Link
-          href="/scan"
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-            <path d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2M7 12h10" />
-          </svg>
-          Scan QR Code
-        </Link>
+        {isAdminTech && (
+          <Link
+            href="/scan"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2M7 12h10" />
+            </svg>
+            Scan QR Code
+          </Link>
+        )}
       </div>
 
       <Alert>{error}</Alert>
@@ -217,7 +225,9 @@ export default function DashboardPage() {
                       className="flex items-center justify-between rounded-lg border border-slate-800 p-3 transition hover:border-slate-700"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{asset.assetName}</p>
+                        <p className="truncate text-sm font-medium">
+                          {asset.assetName || [asset.make, asset.model].filter(Boolean).join(' ') || asset.assetId}
+                        </p>
                         <p className="text-xs text-slate-500">{asset.assetId}</p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -250,7 +260,7 @@ export default function DashboardPage() {
               <thead className="text-xs uppercase text-slate-500">
                 <tr className="border-b border-slate-800">
                   <th className="py-2 pr-4 font-medium">Asset</th>
-                  <th className="py-2 pr-4 font-medium">Type</th>
+                  <th className="py-2 pr-4 font-medium">Category</th>
                   <th className="py-2 pr-4 font-medium">Status</th>
                   <th className="py-2 pr-4 font-medium">Risk</th>
                   <th className="py-2 font-medium">Next Maintenance</th>
@@ -263,18 +273,20 @@ export default function DashboardPage() {
                     <tr key={asset.id}>
                       <td className="py-2.5 pr-4">
                         <Link href={`/assets/${asset.assetId}`} className="font-medium hover:text-emerald-300">
-                          {asset.assetName}
+                          {asset.assetName || [asset.make, asset.model].filter(Boolean).join(' ') || asset.assetId}
                         </Link>
                         <p className="text-xs text-slate-500">{asset.assetId}</p>
                       </td>
-                      <td className="py-2.5 pr-4 text-slate-400">{asset.assetType || '—'}</td>
+                      <td className="py-2.5 pr-4 text-slate-400">
+                        {asset.category || asset.assetType || '—'}
+                      </td>
                       <td className="py-2.5 pr-4">
-                        <Pill tone={asset.assetStatus === 'active' ? 'success' : 'neutral'}>
-                          {asset.assetStatus}
+                        <Pill tone={STATUS_TONE[asset.assetStatus] || 'neutral'}>
+                          {asset.assetStatus || 'Unknown'}
                         </Pill>
                       </td>
                       <td className="py-2.5 pr-4">
-                        <Pill tone={risk.tone}>{formatNumber(asset.predictiveScore)}</Pill>
+                        <RiskBadge score={asset.predictiveScore} />
                       </td>
                       <td className="py-2.5 text-slate-400">
                         {formatDate(asset.nextMaintenanceDate)}

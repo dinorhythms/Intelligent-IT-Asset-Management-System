@@ -3,6 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
+import { AuditService } from '../audit/audit.service';
+import { UsersService } from '../users/users.service';
 import { UserEntity } from './user.entity';
 
 @Injectable()
@@ -11,44 +13,55 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+    private readonly usersService: UsersService,
+    private readonly auditService: AuditService,
   ) {}
 
-  async register(body: any) {
-    const passwordHash = await bcrypt.hash(body.password || 'password123', 10);
-    const user = this.userRepository.create({
-      username: body.username,
-      email: body.email,
-      passwordHash,
-      role: body.role || 'technician',
-      loginStatus: 'active',
-    });
-    await this.userRepository.save(user);
-    return {
-      message: 'User registered',
-      user: { username: user.username, email: user.email, role: user.role },
-    };
+  async register(body: any, actor?: string) {
+    return this.usersService.create(body, actor);
   }
 
   async login(body: any) {
+    const identifier = body.username || body.email;
     const user = await this.userRepository.findOne({
-      where: { username: body.username },
+      where: [
+        { username: identifier },
+        ...(identifier && identifier.includes('@')
+          ? [{ email: identifier } as any]
+          : []),
+      ],
     });
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const valid = await bcrypt.compare(body.password || '', user.passwordHash);
-    console.log('time to check password error:', valid);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
-    console.log('password passed:');
 
     user.lastLogin = new Date();
     user.loginStatus = 'active';
     await this.userRepository.save(user);
+    await this.auditService.log('user.login', {
+      actor: user.username,
+      entityType: 'user',
+      entityId: String(user.id),
+    });
 
-    const payload = { sub: user.id, username: user.username, role: user.role };
+    const payload = {
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+    };
     return {
       accessToken: this.jwtService.sign(payload),
       user: {
+        id: user.id,
         username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        otherNames: user.otherNames,
+        department: user.department,
+        location: user.location,
+        phoneNumber: user.phoneNumber,
         role: user.role,
         lastLogin: user.lastLogin,
         loginStatus: user.loginStatus,
@@ -71,11 +84,8 @@ export class AuthService {
     const entry = await this.userRepository.findOne({
       where: { username: user.username },
     });
-    return {
-      username: entry?.username,
-      role: entry?.role,
-      lastLogin: entry?.lastLogin,
-      loginStatus: entry?.loginStatus,
-    };
+    if (!entry) return null;
+    const { passwordHash, ...safe } = entry;
+    return safe;
   }
 }

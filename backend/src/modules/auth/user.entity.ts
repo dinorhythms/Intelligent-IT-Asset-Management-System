@@ -17,10 +17,28 @@ export class UserEntity {
   @Column({ nullable: true, unique: true })
   email: string;
 
+  @Column({ nullable: true })
+  firstName: string;
+
+  @Column({ nullable: true })
+  lastName: string;
+
+  @Column({ nullable: true })
+  otherNames: string;
+
+  @Column({ nullable: true })
+  department: string;
+
+  @Column({ nullable: true })
+  location: string;
+
+  @Column({ nullable: true })
+  phoneNumber: string;
+
   @Column()
   passwordHash: string;
 
-  @Column({ default: 'technician' })
+  @Column({ default: 'staff' })
   role: string;
 
   @Column({ nullable: true })

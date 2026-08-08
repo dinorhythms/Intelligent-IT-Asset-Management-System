@@ -6,8 +6,20 @@ const API_URL = process.env.API_URL || 'http://localhost:3001';
 const APP_ORIGIN = new URL(APP_URL).origin;
 const API_ORIGIN = new URL(API_URL).origin;
 
-const PROTECTED_PATHS = ['/', '/assets', '/requests', '/services', '/analytics', '/scan'];
-const PUBLIC_PATHS = ['/login', '/register'];
+const PROTECTED_PATHS = [
+  '/',
+  '/assets',
+  '/requests',
+  '/services',
+  '/analytics',
+  '/scan',
+  '/assignments',
+  '/users',
+  '/audit',
+  '/settings',
+  '/register',
+];
+const PUBLIC_PATHS = ['/login', '/view'];
 
 function isProtectedPath(pathname) {
   return PROTECTED_PATHS.some(
@@ -42,7 +54,7 @@ async function enforceAuth(window, targetUrl) {
 
     if (isPublicPath(pathname)) {
       // Prevent an authenticated user from lingering on the login page.
-      if (await hasAuthToken() && pathname !== '/register') {
+      if (await hasAuthToken() && pathname !== '/view') {
         window.loadURL(APP_URL);
       }
       return;

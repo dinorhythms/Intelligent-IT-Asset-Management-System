@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { Alert } from '../components/Ui';
@@ -38,7 +37,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-lg font-bold text-slate-950">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-lg font-bold text-emerald-950">
             IT
           </div>
           <h1 className="text-2xl font-semibold text-slate-100">
@@ -76,16 +75,10 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
-          <p className="text-center text-sm text-slate-500">
-            No account?{' '}
-            <Link href="/register" className="font-medium text-emerald-400 hover:text-emerald-300">
-              Register
-            </Link>
-          </p>
         </form>
 
         <p className="mt-6 text-center text-xs text-slate-600">

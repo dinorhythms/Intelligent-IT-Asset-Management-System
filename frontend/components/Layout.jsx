@@ -1,27 +1,38 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { initials } from '../lib/utils';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: 'M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10' },
   { href: '/assets', label: 'Assets', icon: 'M4 6h16M4 12h16M4 18h16' },
   { href: '/requests', label: 'Requests', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+  { href: '/assignments', label: 'Assignments', icon: 'M8 7h8M8 12h8M8 17h5M3 5a2 2 0 012-2h2a2 2 0 012 2M15 5a2 2 0 012-2h2a2 2 0 012 2M3 19a2 2 0 012-2h2a2 2 0 012 2M15 19a2 2 0 012-2h2a2 2 0 012 2' },
   { href: '/services', label: 'Services', icon: 'M12 9v2m0 4h.01M11 4.5L3.5 17a2 2 0 001.76 3h13.48a2 2 0 001.76-3L13 4.5a2 2 0 00-3.5 0z' },
+  { href: '/categories', label: 'Categories', icon: 'M4 6h16M4 10h16M4 14h10M4 18h7M15 15l3-3m0 0l3 3m-3-3v9' },
+  { href: '/vendors', label: 'Vendors', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
   { href: '/analytics', label: 'Analytics', icon: 'M9 19v-6M15 19V9M5 19V5M19 19h2M3 3v18h18' },
   { href: '/scan', label: 'QR Scan', icon: 'M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2M7 12h10' },
+  { href: '/users', label: 'Users', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+  { href: '/audit', label: 'Audit Log', icon: 'M9 12h6m-6 4h6M9 8h1M7 4h10a2 2 0 012 2v14l-3-2-3 2-2-2-2 2-3-2V6a2 2 0 012-2z' },
+  { href: '/settings', label: 'Settings', icon: 'M12 8a4 4 0 100 8 4 4 0 000-8zm9 4l-2-1V9l2-1-2-3-2 1a7 7 0 00-2-1L14 3h-4l-.8 2a7 7 0 00-2 1l-2-1-2 3 2 1v2l-2 1 2 3 2-1a7 7 0 002 1l.8 2h4l.8-2a7 7 0 002-1l2 1 2-3z' },
 ];
 
+const ADMIN_ONLY = ['/users', '/audit', '/settings', '/categories'];
+const STAFF_AND_UP = ['/requests'];
+const TECHNICIAN_AND_UP = ['/assignments', '/analytics', '/vendors'];
+
 const ROLE_LABELS = {
-  admin: 'Administrator',
-  manager: 'Manager',
+  admin: 'Admin',
   technician: 'Technician',
-  viewer: 'Viewer',
+  staff: 'Staff',
 };
 
 export default function Layout({ children }) {
   const router = useRouter();
   const { user, logout, isAuthenticated, loading } = useAuth();
+  const { theme, toggle } = useTheme();
 
   if (!loading && !isAuthenticated) {
     return null;
@@ -35,10 +46,13 @@ export default function Layout({ children }) {
     );
   }
 
+  const role = user?.role;
   const visibleItems = NAV_ITEMS.filter((item) => {
-    if (item.href === '/analytics') {
-      return ['admin', 'manager', 'technician'].includes(user?.role);
+    if (ADMIN_ONLY.includes(item.href)) return role === 'admin';
+    if (TECHNICIAN_AND_UP.includes(item.href)) {
+      return ['admin', 'technician'].includes(role);
     }
+    if (STAFF_AND_UP.includes(item.href)) return true;
     return true;
   });
 
@@ -47,7 +61,7 @@ export default function Layout({ children }) {
       <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-slate-800 bg-slate-900">
         <div className="border-b border-slate-800 px-5 py-5">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500 font-bold text-slate-950">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500 font-bold text-emerald-950">
               IT
             </div>
             <div>
@@ -127,9 +141,26 @@ export default function Layout({ children }) {
             {NAV_ITEMS.find((item) => router.pathname.startsWith(item.href) && item.href !== '/')
               ?.label || 'Dashboard'}
           </p>
-          <div className="flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            Connected
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              Connected
+            </div>
+            <button
+              onClick={toggle}
+              title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+              className="rounded-full border border-slate-800 bg-slate-900 p-2 text-slate-400 transition hover:text-slate-100"
+            >
+              {theme === 'light' ? (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+                  <path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+                  <path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6l1.4 1.4m9.9 9.9l1.4 1.4M5.6 18.4l1.4-1.4m9.9-9.9l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                </svg>
+              )}
+            </button>
           </div>
         </header>
         <div className="p-6">{children}</div>

@@ -21,6 +21,7 @@ export default function ServicesPage() {
   const permission = can.resource('services');
 
   const [services, setServices] = useState([]);
+  const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -45,6 +46,17 @@ export default function ServicesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/assets')
+      .then((data) => active && setAssets(Array.isArray(data) ? data : []))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     if (!filter) return services;
@@ -148,6 +160,7 @@ export default function ServicesPage() {
                   <th className="py-3 pr-4 font-medium">Asset</th>
                   <th className="py-3 pr-4 font-medium">Date</th>
                   <th className="py-3 pr-4 font-medium">Technician</th>
+                  <th className="py-3 pr-4 font-medium">Vendor</th>
                   <th className="py-3 pr-4 font-medium">Cost</th>
                   <th className="py-3 pr-4 font-medium">Status</th>
                   <th className="py-3 pr-4 text-right font-medium">Actions</th>
@@ -173,6 +186,7 @@ export default function ServicesPage() {
                     </td>
                     <td className="py-3 pr-4 text-slate-400">{formatDate(service.serviceDate)}</td>
                     <td className="py-3 pr-4 text-slate-300">{service.technician || '—'}</td>
+                    <td className="py-3 pr-4 text-slate-400">{service.vendorId || '—'}</td>
                     <td className="py-3 pr-4 text-slate-300">{formatCurrency(service.cost)}</td>
                     <td className="py-3 pr-4">
                       <Pill tone={service.serviceStatus === 'completed' ? 'success' : 'info'}>
@@ -218,16 +232,17 @@ export default function ServicesPage() {
           <>
             <GhostButton onClick={() => setModalOpen(false)}>Cancel</GhostButton>
             <PrimaryButton
-              onClick={() => document.querySelector('#service-form-submit')?.click()}
+              onClick={() => document.getElementById('service-form')?.requestSubmit()}
               disabled={submitting}
             >
-              {submitting ? 'Saving…' : 'Save'}
+              {submitting ? 'Saving…' : 'Save Changes'}
             </PrimaryButton>
           </>
         }
       >
         <ServiceForm
           service={editing}
+          assets={assets}
           onSubmit={handleSubmit}
           onCancel={() => setModalOpen(false)}
           submitting={submitting}

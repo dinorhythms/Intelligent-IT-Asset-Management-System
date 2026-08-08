@@ -1,144 +1,175 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
-import { AiService } from '../ai/ai.service';
-import { AssetEntity } from '../asset/asset.entity';
-import { PredictiveResultEntity } from '../analytics/predictive-result.entity';
+import { AuditService } from '../audit/audit.service';
+import { MailerService } from '../mailer/mailer.service';
 import { RequestEntity } from './request.entity';
-
-const TELEMETRY_KEYS = [
-  'usage_hours',
-  'temperature',
-  'cpu_usage',
-  'vibration',
-  'load_factor',
-  'years_operation',
-];
 
 @Injectable()
 export class RequestService {
-  private readonly logger = new Logger(RequestService.name);
-
   constructor(
     @InjectRepository(RequestEntity)
     private readonly requestRepository: Repository<RequestEntity>,
-    @InjectRepository(AssetEntity)
-    private readonly assetRepository: Repository<AssetEntity>,
-    @InjectRepository(PredictiveResultEntity)
-    private readonly predictiveRepository: Repository<PredictiveResultEntity>,
-    private readonly aiService: AiService,
+    private readonly auditService: AuditService,
+    private readonly mailerService: MailerService,
   ) {}
 
   async findAll() {
-    return this.requestRepository.find();
+    return this.requestRepository.find({ order: { createdAt: 'DESC' } });
   }
 
   async findOne(id: string) {
     return this.requestRepository.findOne({ where: { requestNo: id } });
   }
 
-  async create(body: any) {
+  async findMine(username: string) {
+    return this.requestRepository.find({
+      where: { requestedBy: username },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async create(body: any, user?: any) {
     const request = this.requestRepository.create({
-      ...body,
-      requestNo: body.requestNo || `REQ-${Date.now()}`,
-      assetName: body.assetName || 'Unnamed asset',
-      assetType: body.assetType || 'hardware',
-      assetIdentifier: body.assetIdentifier || `AST-${Date.now()}`,
-      approvalStatus: body.approvalStatus || 'pending',
-      requestStatus: body.requestStatus || 'open',
+      requestNo: randomUUID(),
+      category: body.category,
+      qty: Number(body.qty) || 1,
       requestPriority: body.requestPriority || 'normal',
+      reason: body.reason || undefined,
+      approvalStatus: 'pending',
+      requestStatus: 'open',
+      requestedBy: body.requestedBy || user?.username || null,
     }) as unknown as RequestEntity;
     const saved = await this.requestRepository.save(request);
-    void this.runAnomalyPipeline(saved, body);
+    await this.auditService.log('request.created', {
+      actor: user?.username,
+      entityType: 'request',
+      entityId: saved.requestNo,
+      details: {
+        category: saved.category,
+        qty: saved.qty,
+        priority: saved.requestPriority,
+      },
+    });
+    void this.mailerService.sendToAdminAndTechnicians(
+      'New asset request submitted',
+      [
+        `A new asset request has been submitted by ${user?.username || saved.requestedBy || 'a user'}.`,
+        `Category: ${saved.category || '—'}`,
+        `Quantity: ${saved.qty}`,
+        `Priority: ${saved.requestPriority}`,
+        `Reason: ${saved.reason || '—'}`,
+        'Review the request and assign available assets after approval.',
+      ],
+    );
     return saved;
   }
 
-  async update(id: string, body: any) {
+  async update(id: string, body: any, user?: any) {
     const request = await this.requestRepository.findOne({
       where: { requestNo: id },
     });
     if (!request) return null;
     Object.assign(request, body);
-    return this.requestRepository.save(request);
+    const saved = await this.requestRepository.save(request);
+    await this.auditService.log('request.updated', {
+      actor: user?.username,
+      entityType: 'request',
+      entityId: saved.requestNo,
+    });
+    return saved;
   }
 
-  async remove(id: string) {
+  async approve(id: string, user?: any, comment?: string) {
+    const request = await this.requestRepository.findOne({
+      where: { requestNo: id },
+    });
+    if (!request) return null;
+    if (request.approvalStatus === 'approved') {
+      return { message: 'Request already approved', request };
+    }
+
+    request.approvalStatus = 'approved';
+    request.approvedBy = user?.username;
+    request.reviewComment = comment || request.reviewComment;
+    const saved = await this.requestRepository.save(request);
+
+    await this.auditService.log('request.approved', {
+      actor: user?.username,
+      entityType: 'request',
+      entityId: saved.requestNo,
+      details: { comment: comment || '' },
+    });
+
+    const requesterEmail = await this.mailerService.findUserEmail(
+      saved.requestedBy,
+    );
+    void this.mailerService.sendToUser(
+      requesterEmail,
+      'Your asset request was approved',
+      [
+        `Hello ${saved.requestedBy || 'there'},`,
+        `Your request for ${saved.qty} x ${saved.category} (${saved.requestPriority} priority) has been approved.`,
+        'An administrator or technician will assign an available asset to you shortly.',
+        saved.reason ? `Your reason: ${saved.reason}` : '',
+      ],
+    );
+
+    return { request: saved };
+  }
+
+  async reject(id: string, user?: any, comment?: string) {
+    const request = await this.requestRepository.findOne({
+      where: { requestNo: id },
+    });
+    if (!request) return null;
+    if (request.approvalStatus === 'rejected') {
+      return { message: 'Request already rejected', request };
+    }
+
+    request.approvalStatus = 'rejected';
+    request.rejectedBy = user?.username;
+    request.reviewComment = comment || request.reviewComment;
+    const saved = await this.requestRepository.save(request);
+
+    await this.auditService.log('request.rejected', {
+      actor: user?.username,
+      entityType: 'request',
+      entityId: saved.requestNo,
+      details: { comment: comment || '' },
+    });
+
+    const requesterEmail = await this.mailerService.findUserEmail(
+      saved.requestedBy,
+    );
+    void this.mailerService.sendToUser(
+      requesterEmail,
+      'Your asset request was rejected',
+      [
+        `Hello ${saved.requestedBy || 'there'},`,
+        `Your request for ${saved.qty} x ${saved.category} has been rejected.`,
+        saved.reviewComment
+          ? `Reason: ${saved.reviewComment}`
+          : 'No comment was provided. Contact your administrator for details.',
+      ],
+    );
+
+    return { request: saved };
+  }
+
+  async remove(id: string, user?: any) {
     const request = await this.requestRepository.findOne({
       where: { requestNo: id },
     });
     if (request) {
+      await this.auditService.log('request.deleted', {
+        actor: user?.username,
+        entityType: 'request',
+        entityId: request.requestNo,
+      });
       await this.requestRepository.remove(request);
     }
     return { deleted: true, id };
-  }
-
-  private async buildAnomalyPayload(
-    request: RequestEntity,
-    body: any,
-  ): Promise<Record<string, any>> {
-    const base: Record<string, any> = {
-      asset_id: request.assetIdentifier,
-      assetId: request.assetIdentifier,
-      usage_hours: body.usage_hours,
-      temperature: body.temperature,
-      cpu_usage: body.cpu_usage,
-      vibration: body.vibration,
-      load_factor: body.load_factor,
-      years_operation: body.years_operation,
-    };
-
-    if (!TELEMETRY_KEYS.some((key) => body[key] !== undefined)) {
-      const asset = await this.assetRepository.findOne({
-        where: { assetId: request.assetIdentifier },
-      });
-      if (asset) {
-        base.usage_hours = asset.usageHours;
-        base.temperature = asset.temperature;
-        base.cpu_usage = asset.cpuUsage;
-        base.vibration = asset.vibration;
-        base.load_factor = asset.loadFactor;
-        base.years_operation = asset.yearsOperation;
-      }
-    }
-    return base;
-  }
-
-  private async runAnomalyPipeline(request: RequestEntity, body: any) {
-    try {
-      const payload = await this.buildAnomalyPayload(request, body);
-      const anomaly = await this.aiService.detectAnomaly(payload);
-      this.logger.log(
-        `[auto-ai] Request ${request.requestNo} anomaly_detected=${anomaly.anomaly_detected}`,
-      );
-
-      let recommendedActions: unknown = [];
-      if (anomaly.anomaly_detected) {
-        const recommendation = await this.aiService.recommend({
-          ...payload,
-          anomaly_detected: anomaly.anomaly_detected,
-        });
-        recommendedActions = recommendation.recommended_actions ?? [];
-        this.logger.log(
-          `[auto-ai] Request ${request.requestNo} recommendations: ${JSON.stringify(
-            recommendedActions,
-          )}`,
-        );
-      }
-
-      await this.predictiveRepository.save(
-        this.predictiveRepository.create({
-          assetId: request.assetIdentifier,
-          requestNo: request.requestNo,
-          anomalyDetected: Boolean(anomaly?.anomaly_detected),
-          recommendedActions,
-        }),
-      );
-    } catch (error) {
-      this.logger.error(
-        `[auto-ai] Anomaly pipeline failed for ${request.requestNo}: ${
-          (error as Error).message
-        }`,
-      );
-    }
   }
 }

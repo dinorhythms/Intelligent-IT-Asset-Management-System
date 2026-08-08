@@ -8,27 +8,39 @@ const AuthContext = createContext(null);
 const ROLE_CAPABILITIES = {
   admin: {
     assets: { create: true, update: true, delete: true, predict: true },
-    requests: { create: true, update: true, delete: true },
+    requests: { create: true, update: true, delete: true, approve: true },
     services: { create: true, update: true, delete: true },
+    assignments: { create: true, return: true },
+    users: true,
+    audit: true,
+    settings: true,
     analytics: true,
-  },
-  manager: {
-    assets: { create: true, update: true, delete: false, predict: true },
-    requests: { create: true, update: true, delete: false },
-    services: { create: true, update: true, delete: false },
-    analytics: true,
+    categories: { create: true, update: true, delete: true },
+    vendors: { create: true, update: true, delete: true },
   },
   technician: {
-    assets: { create: false, update: false, delete: false, predict: false },
-    requests: { create: true, update: false, delete: false },
-    services: { create: false, update: false, delete: false },
+    assets: { create: true, update: true, delete: false, predict: true },
+    requests: { create: true, update: true, delete: false, approve: true },
+    services: { create: true, update: true, delete: false },
+    assignments: { create: true, return: true },
+    users: false,
+    audit: false,
+    settings: false,
     analytics: true,
+    categories: false,
+    vendors: { create: true, update: true, delete: false },
   },
-  viewer: {
+  staff: {
     assets: { create: false, update: false, delete: false, predict: false },
-    requests: { create: false, update: false, delete: false },
+    requests: { create: true, update: false, delete: false, approve: false },
     services: { create: false, update: false, delete: false },
+    assignments: { create: false, return: false },
+    users: false,
+    audit: false,
+    settings: false,
     analytics: false,
+    categories: false,
+    vendors: false,
   },
 };
 
@@ -57,11 +69,9 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     try {
       const data = await api.post('/auth/login', { username, password });
-      const nextUser = {
-        username: data.user.username,
-        role: data.user.role,
-        lastLogin: data.user.lastLogin,
-        loginStatus: data.user.loginStatus,
+      const nextUser = data.user || {
+        username: data.user?.username,
+        role: data.user?.role,
       };
       saveSession(data.accessToken, nextUser);
       setToken(data.accessToken);
@@ -93,11 +103,27 @@ export function AuthProvider({ children }) {
   };
 
   const can = useMemo(() => {
-    const capabilities = ROLE_CAPABILITIES[user?.role] || ROLE_CAPABILITIES.viewer;
+    const capabilities = ROLE_CAPABILITIES[user?.role] || {
+      assets: {},
+      requests: {},
+      services: {},
+      assignments: {},
+      users: false,
+      audit: false,
+      settings: false,
+      analytics: false,
+      categories: false,
+      vendors: false,
+    };
     return {
-      role: user?.role || 'viewer',
+      role: user?.role || 'staff',
       resource: (resource) => capabilities[resource] || {},
       analytics: capabilities.analytics,
+      users: capabilities.users,
+      audit: capabilities.audit,
+      settings: capabilities.settings,
+      categories: capabilities.categories,
+      vendors: capabilities.vendors,
     };
   }, [user]);
 

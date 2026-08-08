@@ -8,8 +8,15 @@ import { formatDate, formatNumber, riskLevel } from '../lib/utils';
 
 const BARCODE_FORMATS = ['qr_code'];
 
+const STATUS_TONE = {
+  Available: 'success',
+  Assigned: 'info',
+  Returned: 'neutral',
+};
+
 export default function ScanPage() {
-  const { can } = useAuth();
+  const { user, can } = useAuth();
+  const isAdminTech = ['admin', 'technician'].includes(user?.role);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const detectorRef = useRef(null);
@@ -121,11 +128,26 @@ export default function ScanPage() {
 
   const risk = riskLevel(asset?.predictiveScore);
 
+  if (!isAdminTech) {
+    return (
+      <div>
+        <PageHeader
+          title="QR Code Scanner"
+          description="Scan an asset QR code to view its predictive maintenance details."
+        />
+        <Alert tone="info">
+          QR scanning is restricted to admins and technicians. Contact your IT team if you need
+          to verify an asset.
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
         title="QR Code Scanner"
-        description="Authenticate to scan an asset QR code and view its predictive maintenance details."
+        description="Scan an asset QR code to view its predictive maintenance details."
       />
 
       <Alert>{error}</Alert>
@@ -216,23 +238,25 @@ export default function ScanPage() {
                     <h3 className="text-xl font-semibold">{asset.assetName}</h3>
                     <p className="text-sm text-slate-500">{asset.assetId}</p>
                   </div>
-                  <Pill tone={asset.assetStatus === 'active' ? 'success' : 'neutral'}>
-                    {asset.assetStatus}
+                  <Pill tone={STATUS_TONE[asset.assetStatus] || 'neutral'}>
+                    {asset.assetStatus || 'Unknown'}
                   </Pill>
                 </div>
 
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                   <div>
-                    <dt className="text-xs uppercase tracking-wide text-slate-500">Type</dt>
-                    <dd className="text-slate-200">{asset.assetType || '—'}</dd>
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Category</dt>
+                    <dd className="text-slate-200">{asset.category || asset.assetType || '—'}</dd>
                   </div>
                   <div>
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Location</dt>
                     <dd className="text-slate-200">{asset.assetLocation || '—'}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs uppercase tracking-wide text-slate-500">Manufacturer</dt>
-                    <dd className="text-slate-200">{asset.manufacturer || '—'}</dd>
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Make / Model</dt>
+                    <dd className="text-slate-200">
+                      {[asset.make, asset.model].filter(Boolean).join(' ') || '—'}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Next Maintenance</dt>
@@ -268,7 +292,7 @@ export default function ScanPage() {
                   {can.resource('assets').predict && (
                     <Link
                       href={`/assets/${asset.assetId}`}
-                      className="inline-flex flex-1 items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400"
+                      className="inline-flex flex-1 items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-400"
                     >
                       Run prediction
                     </Link>

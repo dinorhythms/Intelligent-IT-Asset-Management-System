@@ -27,6 +27,9 @@ export class ServiceEntity {
   assetId: string;
 
   @Column({ nullable: true })
+  vendorId: string;
+
+  @Column({ nullable: true })
   serviceManager: string;
 
   @Column({ type: 'date', nullable: true })

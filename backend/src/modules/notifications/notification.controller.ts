@@ -11,7 +11,7 @@ export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Post('send')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'technician')
   @ApiOperation({ summary: 'Send a notification' })
   @ApiBody({ type: Object, description: 'Notification payload' })
   @ApiResponse({

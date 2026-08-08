@@ -22,9 +22,16 @@ const PRIORITY_TONE = {
   low: 'neutral',
 };
 
+function approvalTone(status) {
+  if (status === 'approved') return 'success';
+  if (status === 'rejected') return 'danger';
+  return 'warning';
+}
+
 export default function RequestsPage() {
-  const { can } = useAuth();
+  const { user, can } = useAuth();
   const permission = can.resource('requests');
+  const isAdminTech = ['admin', 'technician'].includes(user?.role);
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,14 +46,14 @@ export default function RequestsPage() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const data = await api.get('/requests');
+      const data = await api.get(isAdminTech ? '/requests' : '/requests/mine');
       setRequests(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdminTech]);
 
   useEffect(() => {
     load();
@@ -55,7 +62,13 @@ export default function RequestsPage() {
   const filtered = useMemo(() => {
     if (!filter) return requests;
     return requests.filter((request) =>
-      [request.requestNo, request.assetName, request.assetType, request.assetIdentifier, request.requestPriority]
+      [
+        request.requestNo,
+        request.category,
+        request.requestPriority,
+        request.requestedBy,
+        request.approvalStatus,
+      ]
         .join(' ')
         .toLowerCase()
         .includes(filter.toLowerCase()),
@@ -77,9 +90,43 @@ export default function RequestsPage() {
         setNotice(`Request ${editing.requestNo} updated.`);
       } else {
         await api.post('/requests', payload);
-        setNotice('Request created. AI anomaly detection is running.');
+        setNotice('Request submitted. An administrator will review it.');
       }
       setModalOpen(false);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleApprove = async (request) => {
+    setSubmitting(true);
+    setError('');
+    setNotice('');
+    try {
+      await api.put(`/requests/${request.requestNo}/approve`, {});
+      setNotice(
+        `Request ${request.requestNo} approved. The requester has been notified — assign an available asset from the Assignments page.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReject = async (request) => {
+    setSubmitting(true);
+    setError('');
+    setNotice('');
+    try {
+      await api.put(`/requests/${request.requestNo}/reject`, {
+        comment: 'Rejected by approver.',
+      });
+      setNotice(`Request ${request.requestNo} rejected.`);
       await load();
     } catch (err) {
       setError(err.message);
@@ -110,7 +157,11 @@ export default function RequestsPage() {
     <div>
       <PageHeader
         title="Request Management"
-        description="Maintenance and repair requests with automatic AI anomaly detection."
+        description={
+          isAdminTech
+            ? 'Review asset requests, approve or reject them, then assign available assets from the Assignments page.'
+            : 'Request a device by category. Approved requests are fulfilled by an administrator or technician.'
+        }
         actions={
           permission.create && (
             <PrimaryButton onClick={openCreate}>
@@ -137,7 +188,9 @@ export default function RequestsPage() {
           title="No requests found"
           description={
             permission.create
-              ? 'Create a maintenance or repair request to start tracking it.'
+              ? isAdminTech
+                ? 'There are no requests to review yet.'
+                : 'Request a device to get started.'
               : 'There are no requests to display.'
           }
           action={
@@ -151,38 +204,53 @@ export default function RequestsPage() {
               <thead className="text-xs uppercase text-slate-500">
                 <tr className="border-b border-slate-800">
                   <th className="py-3 pl-4 pr-4 font-medium">Request</th>
-                  <th className="py-3 pr-4 font-medium">Asset</th>
+                  <th className="py-3 pr-4 font-medium">Category</th>
+                  <th className="py-3 pr-4 font-medium">Qty</th>
+                  <th className="py-3 pr-4 font-medium">Requester</th>
                   <th className="py-3 pr-4 font-medium">Priority</th>
                   <th className="py-3 pr-4 font-medium">Approval</th>
-                  <th className="py-3 pr-4 font-medium">Status</th>
                   <th className="py-3 pr-4 font-medium">Created</th>
                   <th className="py-3 pr-4 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {filtered.map((request) => (
-                  <tr key={request.id} className="hover:bg-slate-800/40">
+                  <tr key={request.requestNo} className="hover:bg-slate-800/40">
                     <td className="py-3 pl-4 pr-4 font-medium text-slate-200">{request.requestNo}</td>
-                    <td className="py-3 pr-4">
-                      <p className="text-slate-200">{request.assetName}</p>
-                      <p className="text-xs text-slate-500">
-                        {request.assetType} · {request.assetIdentifier}
-                      </p>
-                    </td>
+                    <td className="py-3 pr-4 text-slate-300">{request.category || '—'}</td>
+                    <td className="py-3 pr-4 text-slate-300">{request.qty ?? 1}</td>
+                    <td className="py-3 pr-4 text-slate-300">{request.requestedBy || '—'}</td>
                     <td className="py-3 pr-4">
                       <Pill tone={PRIORITY_TONE[request.requestPriority] || 'neutral'}>
                         {request.requestPriority}
                       </Pill>
                     </td>
                     <td className="py-3 pr-4">
-                      <Pill tone={request.approvalStatus === 'approved' ? 'success' : request.approvalStatus === 'rejected' ? 'danger' : 'warning'}>
+                      <Pill tone={approvalTone(request.approvalStatus)}>
                         {request.approvalStatus}
                       </Pill>
                     </td>
-                    <td className="py-3 pr-4 text-slate-300">{request.requestStatus}</td>
                     <td className="py-3 pr-4 text-slate-400">{formatDate(request.createdAt)}</td>
                     <td className="py-3 pr-4">
                       <div className="flex justify-end gap-2">
+                        {isAdminTech && request.approvalStatus === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(request)}
+                              disabled={submitting}
+                              className="rounded-lg border border-emerald-500/40 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(request)}
+                              disabled={submitting}
+                              className="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
                         {permission.update && (
                           <button
                             onClick={() => {
@@ -220,10 +288,10 @@ export default function RequestsPage() {
           <>
             <GhostButton onClick={() => setModalOpen(false)}>Cancel</GhostButton>
             <PrimaryButton
-              onClick={() => document.querySelector('#request-form-submit')?.click()}
+              onClick={() => document.getElementById('request-form')?.requestSubmit()}
               disabled={submitting}
             >
-              {submitting ? 'Saving…' : 'Save'}
+              {submitting ? 'Saving…' : 'Save Changes'}
             </PrimaryButton>
           </>
         }
@@ -252,7 +320,7 @@ export default function RequestsPage() {
         <p className="text-sm text-slate-300">
           Are you sure you want to delete request{' '}
           <span className="font-medium text-slate-100">{deleting?.requestNo}</span> for{' '}
-          {deleting?.assetName}? This cannot be undone.
+          {deleting?.category}? This cannot be undone.
         </p>
       </Modal>
     </div>

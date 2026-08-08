@@ -1,16 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
+import { AssetEntity } from '../asset/asset.entity';
+import { AssignmentService } from '../assignment/assignment.service';
 import { AuditService } from '../audit/audit.service';
 import { MailerService } from '../mailer/mailer.service';
 import { RequestEntity } from './request.entity';
 
 @Injectable()
 export class RequestService {
+  private readonly logger = new Logger(RequestService.name);
+
   constructor(
     @InjectRepository(RequestEntity)
     private readonly requestRepository: Repository<RequestEntity>,
+    @InjectRepository(AssetEntity)
+    private readonly assetRepository: Repository<AssetEntity>,
+    private readonly assignmentService: AssignmentService,
     private readonly auditService: AuditService,
     private readonly mailerService: MailerService,
   ) {}
@@ -81,7 +88,7 @@ export class RequestService {
     return saved;
   }
 
-  async approve(id: string, user?: any, comment?: string) {
+  async approve(id: string, user?: any, body?: any) {
     const request = await this.requestRepository.findOne({
       where: { requestNo: id },
     });
@@ -92,15 +99,51 @@ export class RequestService {
 
     request.approvalStatus = 'approved';
     request.approvedBy = user?.username;
-    request.reviewComment = comment || request.reviewComment;
+    request.reviewComment = body?.comment || request.reviewComment;
     const saved = await this.requestRepository.save(request);
 
-    await this.auditService.log('request.approved', {
-      actor: user?.username,
-      entityType: 'request',
-      entityId: saved.requestNo,
-      details: { comment: comment || '' },
-    });
+    const assetIds = Array.isArray(body?.assetIds)
+      ? body.assetIds.filter((assetId: string) => typeof assetId === 'string')
+      : [];
+
+    const assignments = [];
+    const actor = user?.username || 'Admin';
+    if (saved.requestedBy && assetIds.length > 0) {
+      for (const assetId of assetIds) {
+        try {
+          const created = await this.assignmentService.create(
+            { assetId, username: saved.requestedBy },
+            actor,
+          );
+          assignments.push(created);
+          await this.auditService.log('request.approved', {
+            actor,
+            entityType: 'request',
+            entityId: saved.requestNo,
+            description: `${actor} approved request ${saved.requestNo} and assigned asset ${created.asset?.assetId || assetId} (${created.lifecycleStatus || 'New'}) to user ${created.user?.name || saved.requestedBy}.`,
+            details: {
+              assetId: created.asset?.assetId || assetId,
+              userName: saved.requestedBy,
+              lifecycleStatus: created.lifecycleStatus || 'New',
+            },
+          });
+        } catch (error) {
+          this.logger.warn(
+            `[request] Assignment failed for ${saved.requestNo} / ${assetId}: ${
+              (error as Error).message
+            }`,
+          );
+        }
+      }
+    } else {
+      await this.auditService.log('request.approved', {
+        actor,
+        entityType: 'request',
+        entityId: saved.requestNo,
+        description: `${actor} approved request ${saved.requestNo}.`,
+        details: { comment: body?.comment || '' },
+      });
+    }
 
     const requesterEmail = await this.mailerService.findUserEmail(
       saved.requestedBy,
@@ -111,12 +154,21 @@ export class RequestService {
       [
         `Hello ${saved.requestedBy || 'there'},`,
         `Your request for ${saved.qty} x ${saved.category} (${saved.requestPriority} priority) has been approved.`,
-        'An administrator or technician will assign an available asset to you shortly.',
+        assignments.length > 0
+          ? `${assignments.length} asset(s) have been assigned to you: ${assignments
+              .map(
+                (assignment) =>
+                  assignment.asset?.assetName ||
+                  assignment.asset?.assetId ||
+                  assignment.assetId,
+              )
+              .join(', ')}.`
+          : 'An administrator or technician will assign an available asset to you shortly.',
         saved.reason ? `Your reason: ${saved.reason}` : '',
-      ],
+      ].filter(Boolean),
     );
 
-    return { request: saved };
+    return { request: saved, assignments };
   }
 
   async reject(id: string, user?: any, comment?: string) {

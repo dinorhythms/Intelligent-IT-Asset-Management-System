@@ -13,6 +13,7 @@ import {
 } from '../modules/settings/settings.service';
 import { SettingsEntity } from '../modules/settings/settings.entity';
 import { CategoryEntity } from '../modules/category/category.entity';
+import { DepartmentEntity } from '../modules/department/department.entity';
 import { VendorEntity } from '../modules/vendor/vendor.entity';
 import { AppDataSource } from './data-source';
 
@@ -55,6 +56,7 @@ async function seed() {
   const settingsRepository = AppDataSource.getRepository(SettingsEntity);
   const categoryRepository = AppDataSource.getRepository(CategoryEntity);
   const vendorRepository = AppDataSource.getRepository(VendorEntity);
+  const departmentRepository = AppDataSource.getRepository(DepartmentEntity);
 
   await seedUser(
     userRepository,
@@ -107,10 +109,10 @@ async function seed() {
   }
 
   const categorySeeds = [
-    { categoryId: 'CAT-001', categoryName: 'Laptop', description: 'Portable computing devices', status: 'active' },
-    { categoryId: 'CAT-002', categoryName: 'Printer', description: 'Printing and output devices', status: 'active' },
-    { categoryId: 'CAT-003', categoryName: 'Server', description: 'Network and application servers', status: 'active' },
-    { categoryId: 'CAT-004', categoryName: 'Network', description: 'Switches, routers and networking hardware', status: 'active' },
+    { categoryId: randomUUID(), categoryName: 'Laptop', description: 'Portable computing devices', status: 'active' },
+    { categoryId: randomUUID(), categoryName: 'Printer', description: 'Printing and output devices', status: 'active' },
+    { categoryId: randomUUID(), categoryName: 'Server', description: 'Network and application servers', status: 'active' },
+    { categoryId: randomUUID(), categoryName: 'Network', description: 'Switches, routers and networking hardware', status: 'active' },
   ];
   for (const seed of categorySeeds) {
     const existing = await categoryRepository.findOne({ where: { categoryId: seed.categoryId } });
@@ -121,7 +123,7 @@ async function seed() {
 
   const vendorSeeds = [
     {
-      vendorId: 'VEND-001',
+      vendorId: randomUUID(),
       vendorName: 'Dell EMEA',
       contactPerson: 'Ada Okafor',
       phoneNumber: '+2348012345678',
@@ -130,7 +132,7 @@ async function seed() {
       status: 'active',
     },
     {
-      vendorId: 'VEND-002',
+      vendorId: randomUUID(),
       vendorName: 'HP Nigeria',
       contactPerson: 'Chinedu Eze',
       phoneNumber: '+2348098765432',
@@ -139,7 +141,7 @@ async function seed() {
       status: 'active',
     },
     {
-      vendorId: 'VEND-003',
+      vendorId: randomUUID(),
       vendorName: 'Cisco Systems',
       contactPerson: 'Bola Ade',
       phoneNumber: '+2348076543210',
@@ -152,6 +154,20 @@ async function seed() {
     const existing = await vendorRepository.findOne({ where: { vendorId: seed.vendorId } });
     if (!existing) {
       await vendorRepository.save(vendorRepository.create(seed));
+    }
+  }
+
+  const departmentSeeds = [
+    { departmentId: randomUUID(), departmentName: 'IT', description: 'Information Technology' },
+    { departmentId: randomUUID(), departmentName: 'Finance', description: 'Finance and accounts' },
+    { departmentId: randomUUID(), departmentName: 'Human Resources', description: 'HR and administration' },
+    { departmentId: randomUUID(), departmentName: 'Operations', description: 'Operations and logistics' },
+    { departmentId: randomUUID(), departmentName: 'Procurement', description: 'Purchasing and supply' },
+  ];
+  for (const seed of departmentSeeds) {
+    const existing = await departmentRepository.findOne({ where: { departmentName: seed.departmentName } });
+    if (!existing) {
+      await departmentRepository.save(departmentRepository.create(seed));
     }
   }
 
@@ -236,10 +252,26 @@ async function seed() {
     }
   }
 
+  const adminUser = await userRepository.findOne({
+    where: { username: 'admin' },
+  });
+  if (adminUser) {
+    const assets = await assetRepository.find();
+    for (const asset of assets) {
+      if (!asset.receivedById) {
+        asset.receivedById = adminUser.id;
+        asset.receivedBy =
+          [adminUser.firstName, adminUser.lastName].filter(Boolean).join(' ') ||
+          adminUser.username;
+        await assetRepository.save(asset);
+      }
+    }
+  }
+
   if ((await serviceRepository.count()) === 0) {
     await serviceRepository.save(
       serviceRepository.create({
-        serviceId: 'SRV-2001',
+        serviceId: randomUUID(),
         serviceDesc: 'Hardware maintenance',
         serviceStatus: 'active',
         predictiveImpact: 0.82,

@@ -1,4 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { api } from '../lib/api';
 import { getToken } from '../lib/auth';
 
@@ -9,7 +16,9 @@ const THEME_KEY = 'theme';
 function readCookie(name) {
   if (typeof document === 'undefined') return null;
   const match = document.cookie.match(
-    new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'),
+    new RegExp(
+      '(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)',
+    ),
   );
   return match ? decodeURIComponent(match[1]) : null;
 }
@@ -76,9 +85,7 @@ export function ThemeProvider({ children }) {
       }
       applyTheme(next);
       if (getToken()) {
-        api
-          .put('/settings/theme', { theme: next })
-          .catch(() => {});
+        api.put('/settings/theme', { theme: next }).catch(() => {});
       }
       return next;
     });
@@ -89,5 +96,7 @@ export function ThemeProvider({ children }) {
     [theme, toggle],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 }

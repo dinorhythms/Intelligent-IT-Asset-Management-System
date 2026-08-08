@@ -44,6 +44,7 @@ function toPayload(form, service) {
 export default function ServiceForm({ service, assets = [], onSubmit, onCancel, submitting }) {
   const [form, setForm] = useState(() => toForm(service));
   const [vendors, setVendors] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const update = (key) => (event) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
   const setAssetId = (assetId) => setForm((prev) => ({ ...prev, assetId }));
@@ -53,6 +54,17 @@ export default function ServiceForm({ service, assets = [], onSubmit, onCancel, 
     api
       .get('/vendors?status=active')
       .then((data) => active && setVendors(Array.isArray(data) ? data : []))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/users/technicians')
+      .then((data) => active && setTechnicians(Array.isArray(data) ? data : []))
       .catch(() => {});
     return () => {
       active = false;
@@ -70,23 +82,31 @@ export default function ServiceForm({ service, assets = [], onSubmit, onCancel, 
       onSubmit={handleSubmit}
       className="grid grid-cols-1 gap-4 sm:grid-cols-2"
     >
-      <Field label="Service ID" hint={service ? 'Auto-generated and immutable.' : 'Leave blank to auto-generate'}>
-        <TextInput
-          value={service?.serviceId || ''}
-          placeholder="SRV-2002"
-          readOnly={Boolean(service)}
-          disabled={Boolean(service)}
-          className="w-full cursor-not-allowed rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none opacity-70 transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-        />
-      </Field>
       <Field label="Asset" hint="Select the device this service was performed on" required>
         <DeviceAutocomplete assets={assets} value={form.assetId} onChange={setAssetId} />
       </Field>
       <Field label="Service Description" required>
         <TextInput value={form.serviceDesc} onChange={update('serviceDesc')} placeholder="Preventive maintenance" required />
       </Field>
-      <Field label="Technician" hint="Username of the technician performing the service" required>
-        <TextInput value={form.technician} onChange={update('technician')} placeholder="ada.okafor" required />
+      <Field
+        label="Technician"
+        hint="Technicians and ICT/IT staff who performed the service"
+        required
+      >
+        <SelectInput value={form.technician} onChange={update('technician')} required>
+          <option value="">Select a technician…</option>
+          {technicians.map((technician) => {
+            const name =
+              [technician.firstName, technician.lastName].filter(Boolean).join(' ') ||
+              technician.username;
+            return (
+              <option key={technician.id} value={technician.username}>
+                {name}
+                {technician.department ? ` — ${technician.department}` : ''}
+              </option>
+            );
+          })}
+        </SelectInput>
       </Field>
       <Field label="Vendor">
         <SelectInput value={form.vendorId} onChange={update('vendorId')}>

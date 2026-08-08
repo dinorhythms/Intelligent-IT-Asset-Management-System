@@ -9,6 +9,7 @@ import { AssetModule } from './modules/asset/asset.module';
 import { AssignmentModule } from './modules/assignment/assignment.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { CategoryModule } from './modules/category/category.module';
+import { DepartmentModule } from './modules/department/department.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { NotificationModule } from './modules/notifications/notification.module';
 import { QrCodeModule } from './modules/qrcode/qrcode.module';
@@ -36,6 +37,7 @@ import { VendorModule } from './modules/vendor/vendor.module';
     QrCodeModule,
     CategoryModule,
     VendorModule,
+    DepartmentModule,
   ],
   controllers: [HealthController],
 })

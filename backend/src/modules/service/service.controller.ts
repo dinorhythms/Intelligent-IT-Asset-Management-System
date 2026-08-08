@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -30,6 +31,25 @@ export class ServiceController {
   @ApiResponse({ status: 200, description: 'Service records returned' })
   findAll() {
     return this.serviceService.findAll();
+  }
+
+  @Get('mine')
+  @ApiOperation({
+    summary: 'List service records for assets assigned to the logged-in user',
+  })
+  findMine(@Req() req: any) {
+    return this.serviceService.findMine(req.user?.username);
+  }
+
+  @Get('asset/:assetId')
+  @Roles('admin', 'technician')
+  @ApiOperation({
+    summary: 'List service records for an asset (Admin/Tech only)',
+    description:
+      'Returns the full service history for an asset including technician notes. Not visible to staff.',
+  })
+  findByAsset(@Param('assetId') assetId: string) {
+    return this.serviceService.findByAsset(assetId);
   }
 
   @Get(':id')

@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { useAuth } from '../context/AuthContext';
-import { Alert } from '../components/Ui';
+import { useState } from 'react';
 import { Field, TextInput } from '../components/Fields';
+import { Alert } from '../components/Ui';
+import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../lib/api';
 
 export default function LoginPage() {
@@ -34,57 +34,50 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-lg font-bold text-emerald-950">
+    <div className='flex min-h-screen items-center justify-center bg-slate-950 px-4'>
+      <div className='w-full max-w-sm'>
+        <div className='mb-8 text-center'>
+          <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-lg font-bold text-emerald-950'>
             IT
           </div>
-          <h1 className="text-2xl font-semibold text-slate-100">
+          <h1 className='text-2xl font-semibold text-slate-100'>
             Intelligent IT Asset Management
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className='mt-1 text-sm text-slate-500'>
             QR tracking · Agentic AI · Predictive maintenance
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-xl"
-        >
+          className='space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-xl'>
           <Alert>{error}</Alert>
-          <Field label="Username" required>
+          <Field label='Username' required>
             <TextInput
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="admin"
-              autoComplete="username"
+              placeholder='admin'
+              autoComplete='username'
               required
             />
           </Field>
-          <Field label="Password" required>
+          <Field label='Password' required>
             <TextInput
-              type="password"
+              type='password'
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••"
-              autoComplete="current-password"
+              placeholder='••••••••'
+              autoComplete='current-password'
               required
             />
           </Field>
           <button
-            type="submit"
+            type='submit'
             disabled={submitting}
-            className="w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            className='w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50'>
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-xs text-slate-600">
-          Seeded account — username: <span className="font-mono">admin</span>, password:{' '}
-          <span className="font-mono">admin123</span>
-        </p>
       </div>
     </div>
   );

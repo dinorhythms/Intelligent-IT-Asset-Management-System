@@ -8,8 +8,8 @@ import {
 
 @Entity('asset_categories')
 export class CategoryEntity {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ unique: true })
   categoryId: string;

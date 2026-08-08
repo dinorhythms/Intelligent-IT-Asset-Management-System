@@ -8,8 +8,8 @@ import {
 
 @Entity('asset_request')
 export class RequestEntity {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ unique: true })
   requestNo: string;

@@ -8,8 +8,8 @@ import {
 
 @Entity('vendors')
 export class VendorEntity {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ unique: true })
   vendorId: string;

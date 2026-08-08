@@ -8,8 +8,8 @@ import {
 
 @Entity('asset_details')
 export class AssetEntity {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ unique: true })
   assetId: string;
@@ -53,6 +53,9 @@ export class AssetEntity {
   @Column({ type: 'date', nullable: true })
   deliveryDate: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  receivedById: string;
+
   @Column({ nullable: true })
   receivedBy: string;
 
@@ -64,6 +67,12 @@ export class AssetEntity {
 
   @Column({ nullable: true })
   assetLifecycle: string;
+
+  @Column({ nullable: true })
+  condition: string;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
 
   @Column({ nullable: true })
   manufacturer: string;
@@ -79,6 +88,9 @@ export class AssetEntity {
 
   @Column({ type: 'float', nullable: true })
   predictiveScore: number;
+
+  @Column({ default: false })
+  scoreEstimated: boolean;
 
   @Column({ type: 'date', nullable: true })
   nextMaintenanceDate: string;

@@ -10,37 +10,40 @@ const ROLE_CAPABILITIES = {
     assets: { create: true, update: true, delete: true, predict: true },
     requests: { create: true, update: true, delete: true, approve: true },
     services: { create: true, update: true, delete: true },
-    assignments: { create: true, return: true },
+    assignments: { create: true, update: true, delete: true, return: true, initiateReturn: true, confirmReturn: true },
     users: true,
     audit: true,
     settings: true,
     analytics: true,
     categories: { create: true, update: true, delete: true },
     vendors: { create: true, update: true, delete: true },
+    departments: { create: true, update: true, delete: true },
   },
   technician: {
     assets: { create: true, update: true, delete: false, predict: true },
     requests: { create: true, update: true, delete: false, approve: true },
     services: { create: true, update: true, delete: false },
-    assignments: { create: true, return: true },
+    assignments: { create: true, return: true, initiateReturn: true, confirmReturn: true },
     users: false,
     audit: false,
     settings: false,
     analytics: true,
     categories: false,
     vendors: { create: true, update: true, delete: false },
+    departments: false,
   },
   staff: {
     assets: { create: false, update: false, delete: false, predict: false },
     requests: { create: true, update: false, delete: false, approve: false },
     services: { create: false, update: false, delete: false },
-    assignments: { create: false, return: false },
+    assignments: { create: false, return: false, initiateReturn: true, confirmReturn: false },
     users: false,
     audit: false,
     settings: false,
     analytics: false,
     categories: false,
     vendors: false,
+    departments: false,
   },
 };
 
@@ -114,6 +117,7 @@ export function AuthProvider({ children }) {
       analytics: false,
       categories: false,
       vendors: false,
+      departments: false,
     };
     return {
       role: user?.role || 'staff',
@@ -124,6 +128,7 @@ export function AuthProvider({ children }) {
       settings: capabilities.settings,
       categories: capabilities.categories,
       vendors: capabilities.vendors,
+      departments: capabilities.departments,
     };
   }, [user]);
 

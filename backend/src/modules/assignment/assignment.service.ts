@@ -10,10 +10,13 @@ import { AssetEntity } from '../asset/asset.entity';
 import {
   ASSET_STATUS_ASSIGNED,
   ASSET_STATUS_AVAILABLE,
+  computeLifecycleStatus,
+  LifecycleStatus,
 } from '../asset/asset.service';
 import { AuditService } from '../audit/audit.service';
 import { UserEntity } from '../auth/user.entity';
 import { MailerService } from '../mailer/mailer.service';
+import { ServiceEntity } from '../service/service.entity';
 import { AssignmentEntity } from './assignment.entity';
 
 @Injectable()
@@ -25,6 +28,8 @@ export class AssignmentService {
     private readonly assetRepository: Repository<AssetEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+    @InjectRepository(ServiceEntity)
+    private readonly serviceRepository: Repository<ServiceEntity>,
     private readonly auditService: AuditService,
     private readonly mailerService: MailerService,
   ) {}
@@ -33,6 +38,18 @@ export class AssignmentService {
     if (!user) return undefined;
     const full = [user.firstName, user.lastName].filter(Boolean).join(' ');
     return full || user.username;
+  }
+
+  private async lifecycleFor(asset: AssetEntity): Promise<LifecycleStatus> {
+    const [serviceCount, assignmentCount] = await Promise.all([
+      this.serviceRepository
+        .count({ where: { assetId: asset.assetId } })
+        .catch(() => 0),
+      this.assignmentRepository
+        .count({ where: { assetId: asset.assetId } })
+        .catch(() => 0),
+    ]);
+    return computeLifecycleStatus(asset, serviceCount, assignmentCount);
   }
 
   private async enrich(assignment: AssignmentEntity) {
@@ -46,6 +63,7 @@ export class AssignmentService {
       : null;
     return {
       ...assignment,
+      lifecycleStatus: asset ? await this.lifecycleFor(asset) : null,
       asset: asset
         ? {
             assetId: asset.assetId,
@@ -85,6 +103,14 @@ export class AssignmentService {
   async findAllMine(username: string) {
     const list = await this.assignmentRepository.find({
       where: { userName: username },
+      order: { createdAt: 'DESC' },
+    });
+    return Promise.all(list.map((item) => this.enrich(item)));
+  }
+
+  async findAllByUser(userId: string) {
+    const list = await this.assignmentRepository.find({
+      where: { userId, status: 'assigned' },
       order: { createdAt: 'DESC' },
     });
     return Promise.all(list.map((item) => this.enrich(item)));
@@ -150,7 +176,7 @@ export class AssignmentService {
     return this.enrich(saved);
   }
 
-  async returnAsset(id: number, actor?: string) {
+  async returnAsset(id: string, actor?: string) {
     const assignment = await this.assignmentRepository.findOne({
       where: { id },
     });
@@ -190,6 +216,52 @@ export class AssignmentService {
     );
 
     return this.enrich(saved);
+  }
+
+  async update(id: string, payload: any, actor?: string) {
+    const assignment = await this.assignmentRepository.findOne({
+      where: { id },
+    });
+    if (!assignment) throw new NotFoundException('Assignment not found');
+
+    if (payload.notes !== undefined) assignment.notes = payload.notes;
+    if (payload.status === 'returned') {
+      return this.returnAsset(id, actor);
+    }
+
+    const saved = await this.assignmentRepository.save(assignment);
+    await this.auditService.log('assignment.updated', {
+      actor,
+      entityType: 'assignment',
+      entityId: String(assignment.assignmentId || id),
+      details: { assetId: assignment.assetId, notes: assignment.notes },
+    });
+    return this.enrich(saved);
+  }
+
+  async remove(id: string, actor?: string) {
+    const assignment = await this.assignmentRepository.findOne({
+      where: { id },
+    });
+    if (!assignment) throw new NotFoundException('Assignment not found');
+
+    await this.auditService.log('assignment.deleted', {
+      actor,
+      entityType: 'assignment',
+      entityId: String(assignment.assignmentId || id),
+      details: { assetId: assignment.assetId, userName: assignment.userName },
+    });
+    await this.assignmentRepository.remove(assignment);
+
+    const asset = await this.assetRepository.findOne({
+      where: { assetId: assignment.assetId },
+    });
+    if (asset && assignment.status === 'assigned') {
+      asset.assetStatus = ASSET_STATUS_AVAILABLE;
+      await this.assetRepository.save(asset);
+    }
+
+    return { deleted: true, id };
   }
 
   async assignRequestAsset(

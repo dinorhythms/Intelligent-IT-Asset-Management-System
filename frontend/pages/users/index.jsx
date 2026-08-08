@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
-import { api } from '../../lib/api';
-import {
+import { api } from '../../lib/api';import {
   AccessDenied,
   Alert,
   DangerButton,
@@ -225,7 +224,7 @@ export default function UsersPage() {
           <>
             <GhostButton onClick={() => setEditing(null)}>Cancel</GhostButton>
             <PrimaryButton
-              onClick={() => document.querySelector('#user-form-submit')?.click()}
+              onClick={() => document.getElementById('user-form')?.requestSubmit()}
               disabled={submitting}
             >
               {submitting ? 'Saving…' : 'Save'}
@@ -280,8 +279,28 @@ function UserForm({ user, onSubmit, onCancel, submitting }) {
     role: user.role || 'staff',
     password: '',
   });
+  const [departments, setDepartments] = useState([]);
   const update = (key) => (event) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/departments?status=active')
+      .then((data) => {
+        if (!active) return;
+        const list = Array.isArray(data) ? data : [];
+        const names = list.map((item) => item.departmentName);
+        setDepartments(names);
+        if (names.length > 0 && !names.includes(form.department)) {
+          setForm((prev) => ({ ...prev, department: '' }));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -291,7 +310,7 @@ function UserForm({ user, onSubmit, onCancel, submitting }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <form id="user-form" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Field label="First name" required>
         <TextInput value={form.firstName} onChange={update('firstName')} required />
       </Field>
@@ -302,7 +321,14 @@ function UserForm({ user, onSubmit, onCancel, submitting }) {
         <TextInput value={form.otherNames} onChange={update('otherNames')} />
       </Field>
       <Field label="Department">
-        <TextInput value={form.department} onChange={update('department')} />
+        <SelectInput value={form.department} onChange={update('department')}>
+          <option value="">Select a department…</option>
+          {departments.map((department) => (
+            <option key={department} value={department}>
+              {department}
+            </option>
+          ))}
+        </SelectInput>
       </Field>
       <Field label="Location">
         <TextInput value={form.location} onChange={update('location')} />
@@ -330,23 +356,6 @@ function UserForm({ user, onSubmit, onCancel, submitting }) {
             ))}
           </SelectInput>
         </Field>
-      </div>
-      <div className="col-span-1 flex justify-end gap-3 sm:col-span-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
-        >
-          Cancel
-        </button>
-        <button
-          id="user-form-submit"
-          type="submit"
-          disabled={submitting}
-          className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
-        >
-          {submitting ? 'Saving…' : 'Save'}
-        </button>
       </div>
     </form>
   );

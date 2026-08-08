@@ -41,9 +41,9 @@ export default function DashboardPage() {
       setError('');
       try {
         const [assetData, requestData, serviceData] = await Promise.all([
-          api.get('/assets'),
+          api.get(isAdminTech ? '/assets' : '/assets/mine'),
           api.get(isAdminTech ? '/requests' : '/requests/mine'),
-          api.get('/services'),
+          api.get(isAdminTech ? '/services' : '/services/mine'),
         ]);
         if (!active) return;
         setAssets(assetData || []);

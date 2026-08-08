@@ -309,15 +309,6 @@ function VendorForm({ vendor, onSubmit, onCancel, submitting }) {
 
   return (
     <form id="vendor-form" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <Field label="Vendor ID" hint={vendor ? 'Auto-generated and immutable.' : 'Leave blank to auto-generate'}>
-        <TextInput
-          value={vendor?.vendorId || ''}
-          placeholder="VEND-004"
-          readOnly={Boolean(vendor)}
-          disabled={Boolean(vendor)}
-          className="w-full cursor-not-allowed rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none opacity-70 transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-        />
-      </Field>
       <Field label="Status">
         <SelectInput value={form.status} onChange={update('status')}>
           {STATUS_OPTIONS.map((option) => (

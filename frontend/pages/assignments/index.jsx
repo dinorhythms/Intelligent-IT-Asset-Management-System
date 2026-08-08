@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import {
@@ -123,6 +124,21 @@ export default function AssignmentsPage() {
     }
   };
 
+  const handleDelete = async (assignment) => {
+    setSubmitting(true);
+    setError('');
+    setNotice('');
+    try {
+      await api.delete(`/assignments/${assignment.id}`);
+      setNotice(`${assignment.assetId} assignment removed; asset returned to Available.`);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) return <Spinner label="Loading assignments…" />;
 
   return (
@@ -183,7 +199,12 @@ export default function AssignmentsPage() {
                 {filtered.map((assignment) => (
                   <tr key={assignment.id} className="hover:bg-slate-800/40">
                     <td className="py-3 pl-4 pr-4">
-                      <p className="font-medium text-slate-200">{assignment.assetName || assignment.assetId}</p>
+                      <Link
+                        href={`/assets/${assignment.assetId}`}
+                        className="font-medium text-slate-200 hover:text-emerald-300"
+                      >
+                        {assignment.assetName || assignment.assetId}
+                      </Link>
                       <p className="text-xs text-slate-500">{assignment.assetId}</p>
                     </td>
                     <td className="py-3 pr-4 text-slate-300">
@@ -197,7 +218,7 @@ export default function AssignmentsPage() {
                     <td className="py-3 pr-4 text-slate-400">{formatDate(assignment.assignedAt || assignment.createdAt)}</td>
                     <td className="py-3 pr-4 text-slate-400">{formatDate(assignment.returnedAt)}</td>
                     <td className="py-3 pr-4">
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
                         {permission.return && assignment.status === 'assigned' && (
                           <button
                             onClick={() => handleReturn(assignment)}
@@ -205,6 +226,15 @@ export default function AssignmentsPage() {
                             className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800 disabled:opacity-50"
                           >
                             Mark returned
+                          </button>
+                        )}
+                        {permission.delete && (
+                          <button
+                            onClick={() => handleDelete(assignment)}
+                            disabled={submitting}
+                            className="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                          >
+                            Delete
                           </button>
                         )}
                       </div>
@@ -225,7 +255,7 @@ export default function AssignmentsPage() {
           <>
             <GhostButton onClick={() => setModalOpen(false)}>Cancel</GhostButton>
             <PrimaryButton
-              onClick={() => document.querySelector('#assignment-form-submit')?.click()}
+              onClick={() => document.getElementById('assignment-form')?.requestSubmit()}
               disabled={submitting}
             >
               {submitting ? 'Assigning…' : 'Assign'}
@@ -251,6 +281,28 @@ function AssignmentForm({ availableAssets, users, isAdmin, onSubmit, onCancel, s
   const [userId, setUserId] = useState('');
   const [username, setUsername] = useState('');
   const [notes, setNotes] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [department, setDepartment] = useState('');
+
+  const usersByDepartment = useMemo(() => {
+    if (!department) return users;
+    return users.filter((user) => user.department === department);
+  }, [users, department]);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/departments?status=active')
+      .then((data) => {
+        if (!active) return;
+        const list = Array.isArray(data) ? data : [];
+        setDepartments(list.map((item) => item.departmentName));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const canSubmit = assetId && (isAdmin ? userId : username.trim());
 
@@ -259,28 +311,43 @@ function AssignmentForm({ availableAssets, users, isAdmin, onSubmit, onCancel, s
     if (!canSubmit) return;
     onSubmit({
       assetId,
-      ...(isAdmin ? { userId: Number(userId) } : { username: username.trim() }),
+      ...(isAdmin ? { userId } : { username: username.trim() }),
       notes: notes || undefined,
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
+    <form id="assignment-form" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
       <Field label="Device" hint="Only unassigned (Available) devices are shown" required>
         <DeviceAutocomplete assets={availableAssets} value={assetId} onChange={setAssetId} />
       </Field>
 
       {isAdmin ? (
-        <Field label="Assign to (user)" required>
-          <SelectInput value={userId} onChange={(event) => setUserId(event.target.value)} required>
-            <option value="">Select a user…</option>
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username} — {user.username} ({user.department || '—'})
-              </option>
-            ))}
-          </SelectInput>
-        </Field>
+        <>
+          <Field label="Department (filter)" hint="Narrow the user list by department">
+            <SelectInput value={department} onChange={(event) => {
+              setDepartment(event.target.value);
+              setUserId('');
+            }}>
+              <option value="">All departments</option>
+              {departments.map((departmentName) => (
+                <option key={departmentName} value={departmentName}>
+                  {departmentName}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+          <Field label="Assign to (user)" required>
+            <SelectInput value={userId} onChange={(event) => setUserId(event.target.value)} required>
+              <option value="">Select a user…</option>
+              {usersByDepartment.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username} — {user.username} ({user.department || '—'})
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+        </>
       ) : (
         <Field
           label="Assign to (username)"
@@ -299,24 +366,6 @@ function AssignmentForm({ availableAssets, users, isAdmin, onSubmit, onCancel, s
       <Field label="Notes">
         <TextArea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional notes…" />
       </Field>
-
-      <div className="flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
-        >
-          Cancel
-        </button>
-        <button
-          id="assignment-form-submit"
-          type="submit"
-          disabled={submitting || !canSubmit}
-          className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
-        >
-          {submitting ? 'Assigning…' : 'Assign device'}
-        </button>
-      </div>
     </form>
   );
 }

@@ -1,24 +1,49 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
-import { AccessDenied, Alert, PageHeader, PrimaryButton, Spinner } from '../../components/Ui';
-import { Field, TextInput } from '../../components/Fields';
+import { AccessDenied, Alert, GhostButton, PageHeader, PrimaryButton, Spinner } from '../../components/Ui';
+import { Field, NumberInput, TextInput } from '../../components/Fields';
 
 const DEFAULT_BASE_URL = 'http://localhost:3000';
+
+const EMPTY_SMTP = {
+  smtpHost: '',
+  smtpPort: 587,
+  smtpUser: '',
+  smtpPassword: '',
+  fromEmail: '',
+};
 
 export default function SettingsPage() {
   const { can } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testingSmtp, setTestingSmtp] = useState(false);
   const [qrBaseUrl, setQrBaseUrl] = useState('');
+  const [smtp, setSmtp] = useState(EMPTY_SMTP);
+  const [smtpConfigured, setSmtpConfigured] = useState(false);
+  const [testRecipient, setTestRecipient] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
     setError('');
     try {
-      const data = await api.get('/settings/baseurl').catch(() => api.get('/settings'));
-      setQrBaseUrl(data?.qrBaseUrl || DEFAULT_BASE_URL);
+      const [baseUrlData, smtpData] = await Promise.all([
+        api.get('/settings/baseurl').catch(() => api.get('/settings')),
+        api.get('/settings/smtp').catch(() => null),
+      ]);
+      setQrBaseUrl(baseUrlData?.qrBaseUrl || DEFAULT_BASE_URL);
+      if (smtpData) {
+        setSmtp((prev) => ({
+          ...prev,
+          smtpHost: smtpData.smtpHost || '',
+          smtpPort: smtpData.smtpPort || 587,
+          smtpUser: smtpData.smtpUser || '',
+          fromEmail: smtpData.fromEmail || '',
+        }));
+        setSmtpConfigured(Boolean(smtpData.smtpConfigured));
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -36,6 +61,9 @@ export default function SettingsPage() {
   }
 
   if (loading) return <Spinner label="Loading settings…" />;
+
+  const updateSmtp = (key) => (event) =>
+    setSmtp((prev) => ({ ...prev, [key]: event.target.value }));
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -56,7 +84,49 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) return <Spinner label="Loading settings…" />;
+  const handleSaveSmtp = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const payload = {
+        smtpHost: smtp.smtpHost.trim(),
+        smtpPort: Number(smtp.smtpPort) || 587,
+        smtpUser: smtp.smtpUser.trim(),
+        fromEmail: smtp.fromEmail.trim(),
+      };
+      if (smtp.smtpPassword.trim()) payload.smtpPassword = smtp.smtpPassword;
+      await api.put('/settings/smtp', payload);
+      setSmtp((prev) => ({ ...prev, smtpPassword: '' }));
+      setSmtpConfigured(Boolean(payload.smtpHost && payload.fromEmail));
+      setNotice('SMTP settings saved. The password is stored encrypted.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestSmtp = async () => {
+    setTestingSmtp(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await api.post('/settings/smtp/test', {
+        recipient: testRecipient.trim() || undefined,
+      });
+      if (result?.success) {
+        setNotice(result.message || 'Test email sent successfully.');
+      } else {
+        setError(result?.message || 'Could not send the test email.');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setTestingSmtp(false);
+    }
+  };
 
   return (
     <div className="max-w-2xl">
@@ -88,6 +158,62 @@ export default function SettingsPage() {
           <PrimaryButton type="submit" disabled={saving || !qrBaseUrl.trim()}>
             {saving ? 'Saving…' : 'Save settings'}
           </PrimaryButton>
+        </div>
+      </form>
+
+      <form onSubmit={handleSaveSmtp} className="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6">
+        <div className="mb-1 text-sm font-medium text-slate-200">Email / SMTP</div>
+        <p className="mb-4 text-xs text-slate-500">
+          Used to notify admins, technicians and users about assignments, requests and service activity.
+          {smtpConfigured
+            ? ' SMTP is currently configured.'
+            : ' SMTP is not configured yet — notifications will be skipped until a host and from-address are provided.'}
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="SMTP host" hint="e.g. smtp.gmail.com">
+            <TextInput value={smtp.smtpHost} onChange={updateSmtp('smtpHost')} placeholder="smtp.gmail.com" />
+          </Field>
+          <Field label="Port">
+            <NumberInput value={smtp.smtpPort} onChange={updateSmtp('smtpPort')} placeholder="587" min={1} max={65535} />
+          </Field>
+          <Field label="Username">
+            <TextInput value={smtp.smtpUser} onChange={updateSmtp('smtpUser')} placeholder="ops@example.com" />
+          </Field>
+          <Field label="Password" hint="Stored encrypted. Leave blank to keep the current one.">
+            <TextInput
+              type="password"
+              value={smtp.smtpPassword}
+              onChange={updateSmtp('smtpPassword')}
+              placeholder="••••••••"
+            />
+          </Field>
+          <div className="col-span-1 sm:col-span-2">
+            <Field label="From address" required>
+              <TextInput
+                type="email"
+                value={smtp.fromEmail}
+                onChange={updateSmtp('fromEmail')}
+                placeholder="it-assets@example.com"
+                required
+              />
+            </Field>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <PrimaryButton type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save SMTP settings'}
+          </PrimaryButton>
+          <GhostButton type="button" onClick={handleTestSmtp} disabled={testingSmtp || !smtpConfigured}>
+            {testingSmtp ? 'Sending…' : 'Test SMTP'}
+          </GhostButton>
+          <div className="flex-1" />
+          <div className="w-full max-w-xs">
+            <TextInput
+              value={testRecipient}
+              onChange={(event) => setTestRecipient(event.target.value)}
+              placeholder="Optional test recipient email"
+            />
+          </div>
         </div>
       </form>
 

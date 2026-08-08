@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { AiService } from '../ai/ai.service';
 import { AssetEntity } from '../asset/asset.entity';
+import { AssignmentEntity } from '../assignment/assignment.entity';
 import { PredictiveResultEntity } from '../analytics/predictive-result.entity';
 import { AuditService } from '../audit/audit.service';
 import { UserEntity } from '../auth/user.entity';
@@ -24,6 +25,8 @@ export class ServiceService {
     private readonly serviceRepository: Repository<ServiceEntity>,
     @InjectRepository(AssetEntity)
     private readonly assetRepository: Repository<AssetEntity>,
+    @InjectRepository(AssignmentEntity)
+    private readonly assignmentRepository: Repository<AssignmentEntity>,
     @InjectRepository(PredictiveResultEntity)
     private readonly predictiveRepository: Repository<PredictiveResultEntity>,
     @InjectRepository(UserEntity)
@@ -36,6 +39,26 @@ export class ServiceService {
   async findAll() {
     return this.serviceRepository.find({
       order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findMine(username: string) {
+    const assignments = await this.assignmentRepository.find({
+      where: { userName: username, status: 'assigned' },
+    });
+    const assetIds = assignments.map((assignment) => assignment.assetId);
+    if (assetIds.length === 0) return [];
+    return this.serviceRepository
+      .createQueryBuilder('service')
+      .where('service.assetId IN (:...assetIds)', { assetIds })
+      .orderBy('service.createdAt', 'DESC')
+      .getMany();
+  }
+
+  async findByAsset(assetId: string) {
+    return this.serviceRepository.find({
+      where: { assetId },
+      order: { serviceDate: 'DESC' },
     });
   }
 
@@ -52,11 +75,10 @@ export class ServiceService {
     const user = await this.userRepository
       .findOne({ where: { username: String(technician).trim() } })
       .catch(() => null);
-    if (user && user.role !== 'technician') {
-      throw new BadRequestException(
-        'The selected technician must have the Technician role',
-      );
-    }
+    if (user) return;
+    throw new BadRequestException(
+      'The selected technician must be a registered user (Technician, Admin, or ICT/IT staff)',
+    );
   }
 
   async create(body: any) {

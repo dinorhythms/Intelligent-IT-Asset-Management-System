@@ -1,7 +1,7 @@
 import { clearSession, getToken } from './auth';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.103:3001';
 
 export const API_URL = API_BASE_URL;
 
@@ -53,7 +53,10 @@ async function request(path, options = {}) {
 
   if (response.status === 401) {
     clearSession();
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    if (
+      typeof window !== 'undefined' &&
+      window.location.pathname !== '/login'
+    ) {
       window.location.href = '/login';
     }
     throw new ApiError('Unauthorized', 401, null);
@@ -70,14 +73,20 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new ApiError(friendlyMessage(response.status, body), response.status, body);
+    throw new ApiError(
+      friendlyMessage(response.status, body),
+      response.status,
+      body,
+    );
   }
   return body;
 }
 
 export const api = {
   get: (path) => request(path, { method: 'GET' }),
-  post: (path, data) => request(path, { method: 'POST', body: JSON.stringify(data) }),
-  put: (path, data) => request(path, { method: 'PUT', body: JSON.stringify(data) }),
+  post: (path, data) =>
+    request(path, { method: 'POST', body: JSON.stringify(data) }),
+  put: (path, data) =>
+    request(path, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (path) => request(path, { method: 'DELETE' }),
 };

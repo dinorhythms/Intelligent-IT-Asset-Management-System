@@ -13,6 +13,7 @@ export class CreateAssetDto {
   @ApiPropertyOptional({ example: 'VEND-001' }) vendorId?: string;
   @ApiPropertyOptional({ example: 1250000 }) cost?: number;
   @ApiPropertyOptional({ example: '2026-01-15' }) deliveryDate?: string;
+  @ApiPropertyOptional({ example: '3f2a8c1e-…' }) receivedById?: string;
   @ApiPropertyOptional({ example: 'admin' }) receivedBy?: string;
   @ApiPropertyOptional({ example: '3 years' }) warranty?: string;
   @ApiPropertyOptional({ example: 'Available', enum: ['Available', 'Assigned', 'Returned'] })

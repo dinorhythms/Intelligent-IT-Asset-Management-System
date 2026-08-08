@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AiModule } from '../ai/ai.module';
 import { AssetEntity } from '../asset/asset.entity';
+import { AssignmentEntity } from '../assignment/assignment.entity';
 import { PredictiveResultEntity } from '../analytics/predictive-result.entity';
 import { AuditModule } from '../audit/audit.module';
 import { UserEntity } from '../auth/user.entity';
@@ -15,6 +16,7 @@ import { ServiceService } from './service.service';
     TypeOrmModule.forFeature([
       ServiceEntity,
       AssetEntity,
+      AssignmentEntity,
       PredictiveResultEntity,
       UserEntity,
     ]),

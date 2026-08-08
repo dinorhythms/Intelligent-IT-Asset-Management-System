@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export default function Modal({ open, title, onClose, children, footer }) {
+export default function Modal({ open, title, onClose, children, footer, wide }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (event) => {
@@ -18,7 +18,7 @@ export default function Modal({ open, title, onClose, children, footer }) {
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}>
-      <div className='w-full max-w-lg rounded-xl border border-slate-700 bgg-slate-900 bg-white shadow-2xl'>
+      <div className={`w-full rounded-xl border border-slate-700 bg-slate-900 bg-white shadow-2xl ${wide ? 'max-w-4xl' : 'max-w-lg'}`}>
         <div className='flex items-center justify-between border-b border-slate-800 px-5 py-4'>
           <h3 className='text-lg font-semibold'>{title}</h3>
           <button

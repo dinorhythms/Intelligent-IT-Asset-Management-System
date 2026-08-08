@@ -2,8 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 export function assetLabel(asset) {
   if (!asset) return '';
-  const name = asset.assetName || asset.model || asset.assetId;
-  return `${name} (${asset.assetId})`;
+  const name =
+    asset.assetName ||
+    [asset.make, asset.model].filter(Boolean).join(' ') ||
+    asset.assetId;
+  const detail = asset.serialNumber || asset.category;
+  return detail ? `${name} · ${detail}` : name;
 }
 
 export default function DeviceAutocomplete({

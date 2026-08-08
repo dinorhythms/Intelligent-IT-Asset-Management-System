@@ -77,5 +77,6 @@ export const config = {
     '/audit',
     '/settings',
     '/register',
+    '/profile',
   ],
 };

@@ -17,8 +17,9 @@ import ServiceForm from '../../components/ServiceForm';
 import { formatCurrency, formatDate, formatNumber } from '../../lib/utils';
 
 export default function ServicesPage() {
-  const { can } = useAuth();
+  const { user, can } = useAuth();
   const permission = can.resource('services');
+  const isAdminTech = ['admin', 'technician'].includes(user?.role);
 
   const [services, setServices] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -34,20 +35,21 @@ export default function ServicesPage() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const data = await api.get('/services');
+      const data = await api.get(isAdminTech ? '/services' : '/services/mine');
       setServices(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdminTech]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
+    if (!permission.create) return;
     let active = true;
     api
       .get('/assets')
@@ -56,7 +58,7 @@ export default function ServicesPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [permission.create]);
 
   const filtered = useMemo(() => {
     if (!filter) return services;
@@ -140,11 +142,11 @@ export default function ServicesPage() {
 
       {filtered.length === 0 ? (
         <EmptyState
-          title="No service records found"
+          title={isAdminTech ? 'No service records found' : 'No service record available'}
           description={
             permission.create
               ? 'Log the first maintenance or service activity.'
-              : 'There are no service records to display.'
+              : 'No maintenance or service activity has been recorded for your assigned devices yet.'
           }
           action={
             permission.create && <PrimaryButton onClick={openCreate}>Log service</PrimaryButton>

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { VendorEntity } from './vendor.entity';
@@ -16,19 +17,6 @@ export class VendorService {
     private readonly vendorRepository: Repository<VendorEntity>,
     private readonly auditService: AuditService,
   ) {}
-
-  private async nextVendorId(): Promise<string> {
-    const vendors = await this.vendorRepository.find();
-    let max = 0;
-    for (const vendor of vendors) {
-      const match = vendor.vendorId.match(/^VEND-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > max) max = num;
-      }
-    }
-    return `VEND-${String(max + 1).padStart(3, '0')}`;
-  }
 
   async findAll(status?: string) {
     const where = status ? { status } : {};
@@ -53,7 +41,7 @@ export class VendorService {
     }
 
     const vendor = this.vendorRepository.create({
-      vendorId: body.vendorId || (await this.nextVendorId()),
+      vendorId: body.vendorId || randomUUID(),
       vendorName,
       contactPerson: body.contactPerson,
       phoneNumber: body.phoneNumber,

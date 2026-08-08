@@ -70,10 +70,15 @@ export class RequestController {
   @ApiOperation({
     summary: 'Approve a request (Admin/Technician)',
     description:
-      'Marks the request as approved and notifies the requester. Available assets are assigned separately from the Assignments page.',
+      'Marks the request as approved and, when assetIds are supplied, creates an assignment for each selected asset (chosen from the approval modal). If no assets are available the request stays approved but unfulfilled.',
+  })
+  @ApiBody({
+    schema: {
+      example: { comment: 'Approved', assetIds: ['LAPTOP-001'] },
+    },
   })
   approve(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    return this.requestService.approve(id, req.user, body?.comment);
+    return this.requestService.approve(id, req.user, body);
   }
 
   @Put(':id/reject')

@@ -22,9 +22,19 @@ const STATUS_TONE = {
   Returned: 'neutral',
 };
 
+const LIFECYCLE_TONE = {
+  New: 'success',
+  Used: 'neutral',
+};
+
+function lifecycleLabel(asset) {
+  return asset.condition || asset.lifecycleStatus || '—';
+}
+
 export default function AssetsPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const permission = can.resource('assets');
+  const isStaff = user?.role === 'staff';
 
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,15 +51,18 @@ export default function AssetsPage() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const query = category ? `?category=${encodeURIComponent(category)}` : '';
-      const data = await api.get(`/assets${query}`);
+      const data = isStaff
+        ? await api.get('/assets/mine')
+        : await api.get(
+            `/assets${category ? `?category=${encodeURIComponent(category)}` : ''}`,
+          );
       setAssets(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, [category, isStaff]);
 
   useEffect(() => {
     setLoading(true);
@@ -143,8 +156,12 @@ export default function AssetsPage() {
   return (
     <div>
       <PageHeader
-        title="Asset Management"
-        description="Register, update and track assets with QR codes and predictive health."
+        title={isStaff ? 'My Assigned Assets' : 'Asset Management'}
+        description={
+          isStaff
+            ? 'Devices currently assigned to you.'
+            : 'Register, update and track assets with QR codes and predictive health.'
+        }
         actions={
           permission.create && (
             <PrimaryButton onClick={openCreate}>
@@ -161,48 +178,61 @@ export default function AssetsPage() {
         <input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          placeholder="Search by ID, name, make, model, serial or location…"
+          placeholder={
+            isStaff
+              ? 'Search your assigned assets…'
+              : 'Search by ID, name, make, model, serial or location…'
+          }
           className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-500"
         />
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setCategory('')}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-              category === ''
-                ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
-                : 'border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800'
-            }`}
-          >
-            All
-          </button>
-          {(categories.length > 0
-            ? categories.map((item) => item.categoryName)
-            : ['Laptop', 'Printer', 'Server']
-          ).map((item) => (
+        {!isStaff && (
+          <div className="flex flex-wrap gap-2">
             <button
-              key={item}
-              onClick={() => setCategory(category === item ? '' : item)}
+              onClick={() => setCategory('')}
               className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                category === item
+                category === ''
                   ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
                   : 'border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800'
               }`}
             >
-              {item}
+              All
             </button>
-          ))}
-        </div>
+            {(categories.length > 0
+              ? categories.map((item) => item.categoryName)
+              : ['Laptop', 'Printer', 'Server']
+            ).map((item) => (
+              <button
+                key={item}
+                onClick={() => setCategory(category === item ? '' : item)}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                  category === item
+                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
+                    : 'border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800'
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="mb-4">
-        <RiskLegend />
-      </div>
+      {!isStaff && (
+        <div className="mb-4">
+          <RiskLegend />
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <EmptyState
-          title="No assets found"
-          description="Register your first asset to start tracking it with QR codes and AI predictions."
+          title={isStaff ? 'No assets assigned yet' : 'No assets found'}
+          description={
+            isStaff
+              ? 'Assets assigned to you will appear here once an administrator or technician assigns them.'
+              : 'Register your first asset to start tracking it with QR codes and AI predictions.'
+          }
           action={
+            !isStaff &&
             permission.create && <PrimaryButton onClick={openCreate}>Add asset</PrimaryButton>
           }
         />
@@ -218,13 +248,14 @@ export default function AssetsPage() {
                   <th className="py-3 pr-4 font-medium">Serial</th>
                   <th className="py-3 pr-4 font-medium">Location</th>
                   <th className="py-3 pr-4 font-medium">Status</th>
+                  <th className="py-3 pr-4 font-medium">Lifecycle</th>
                   <th className="py-3 pr-4 font-medium">Risk</th>
                   <th className="py-3 pr-4 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {filtered.map((asset) => (
-                    <tr key={asset.id} className="hover:bg-slate-800/40">
+                    <tr key={asset.assetId || asset.assignmentId} className="hover:bg-slate-800/40">
                       <td className="py-3 pl-4 pr-4">
                         <Link
                           href={`/assets/${asset.assetId}`}
@@ -245,6 +276,11 @@ export default function AssetsPage() {
                       <td className="py-3 pr-4">
                         <Pill tone={STATUS_TONE[asset.assetStatus] || 'neutral'}>
                           {asset.assetStatus || 'Unknown'}
+                        </Pill>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <Pill tone={LIFECYCLE_TONE[lifecycleLabel(asset)] || 'neutral'}>
+                          {lifecycleLabel(asset)}
                         </Pill>
                       </td>
                       <td className="py-3 pr-4">

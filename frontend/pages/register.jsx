@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 import { AccessDenied, Alert } from '../components/Ui';
 import { Field, SelectInput, TextInput } from '../components/Fields';
 
@@ -25,12 +26,28 @@ const EMPTY_FORM = {
 export default function RegisterPage() {
   const { register, can } = useAuth();
   const [form, setForm] = useState(EMPTY_FORM);
+  const [departments, setDepartments] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const update = (key) => (event) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/departments?status=active')
+      .then((data) => {
+        if (!active) return;
+        const list = Array.isArray(data) ? data : [];
+        setDepartments(list.map((item) => item.departmentName));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -86,7 +103,14 @@ export default function RegisterPage() {
               <TextInput value={form.otherNames} onChange={update('otherNames')} placeholder="Oluwaseun" />
             </Field>
             <Field label="Department" required>
-              <TextInput value={form.department} onChange={update('department')} placeholder="Finance" required />
+              <SelectInput value={form.department} onChange={update('department')} required>
+                <option value="">Select a department…</option>
+                {departments.map((department) => (
+                  <option key={department} value={department}>
+                    {department}
+                  </option>
+                ))}
+              </SelectInput>
             </Field>
             <Field label="Location">
               <TextInput value={form.location} onChange={update('location')} placeholder="Lagos" />

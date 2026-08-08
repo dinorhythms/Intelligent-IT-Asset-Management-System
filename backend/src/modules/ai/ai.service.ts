@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosRequestConfig } from 'axios';
 import { Repository } from 'typeorm';
+import { AssetEntity } from '../asset/asset.entity';
 import { AiResultEntity } from './ai-result.entity';
 
 const HEALTH_CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -26,6 +27,8 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectRepository(AiResultEntity)
     private readonly aiResultRepository: Repository<AiResultEntity>,
+    @InjectRepository(AssetEntity)
+    private readonly assetRepository: Repository<AssetEntity>,
   ) {
     this.baseUrl = (
       process.env.AI_SERVICE_URL || 'http://127.0.0.1:5001'
@@ -191,8 +194,39 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
+  private riskBand(score: number | null | undefined): 'low' | 'medium' | 'high' {
+    const value = Number(score);
+    if (Number.isNaN(value)) return 'low';
+    if (value < 0.4) return 'low';
+    if (value <= 0.7) return 'medium';
+    return 'high';
+  }
+
   async history(kind?: string) {
     const where = kind ? { kind } : undefined;
-    return this.aiResultRepository.find({ where, order: { createdAt: 'DESC' } });
+    const events = await this.aiResultRepository.find({
+      where,
+      order: { createdAt: 'DESC' },
+    });
+    const assets = await this.assetRepository.find();
+    const nameById = new Map(
+      assets.map((asset) => [asset.assetId, asset.assetName || asset.assetId]),
+    );
+    return events.map((event) => {
+      const score =
+        event.kind === 'predict'
+          ? Number(event.responsePayload?.predictive_score)
+          : null;
+      return {
+        id: event.id,
+        kind: event.kind,
+        assetId: event.assetId,
+        assetName: nameById.get(event.assetId) || event.assetId,
+        riskBand: this.riskBand(score),
+        createdAt: event.createdAt,
+        requestPayload: event.requestPayload,
+        responsePayload: event.responsePayload,
+      };
+    });
   }
 }

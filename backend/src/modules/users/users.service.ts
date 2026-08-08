@@ -33,9 +33,87 @@ export class UsersService {
     return users.map((user) => this.sanitize(user));
   }
 
-  async findById(id: number) {
+  async findById(id: string) {
     const user = await this.userRepository.findOne({ where: { id } });
     return this.sanitize(user);
+  }
+
+  async getProfile(id: string) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    return this.sanitize(user);
+  }
+
+  async updatePassword(id: string, body: any, actor?: string) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const next = body?.newPassword;
+    if (!next || String(next).length < 6) {
+      throw new BadRequestException(
+        'New password must be at least 6 characters long',
+      );
+    }
+
+    const valid = await bcrypt.compare(
+      body?.currentPassword || '',
+      user.passwordHash,
+    );
+    if (!valid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    user.passwordHash = await bcrypt.hash(next, 10);
+    const saved = await this.userRepository.save(user);
+
+    const displayName =
+      [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username;
+    await this.auditService.log('user.password.updated', {
+      actor: actor || user.username,
+      entityType: 'user',
+      entityId: String(saved.id),
+      description: `User ${displayName} updated password on ${new Date().toLocaleString()}.`,
+      details: {
+        userId: saved.id,
+        username: saved.username,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    return this.sanitize(saved);
+  }
+
+  async findByDepartment(department: string) {
+    const users = await this.userRepository.find({
+      where: { department },
+      order: { firstName: 'ASC' },
+    });
+    return users.map((user) => this.sanitize(user));
+  }
+
+  async findReceivers() {
+    const users = await this.userRepository.find({
+      order: { firstName: 'ASC' },
+    });
+    return users
+      .filter(
+        (user) =>
+          user.role === 'admin' ||
+          ['IT', 'ICT', 'Information Technology'].includes(user.department),
+      )
+      .map((user) => this.sanitize(user));
+  }
+
+  async findTechnicians() {
+    const users = await this.userRepository.find({
+      order: { firstName: 'ASC' },
+    });
+    return users
+      .filter(
+        (user) =>
+          user.role === 'technician' ||
+          user.role === 'admin' ||
+          ['IT', 'ICT', 'Information Technology'].includes(user.department),
+      )
+      .map((user) => this.sanitize(user));
   }
 
   async findByUsername(username: string) {
@@ -102,7 +180,7 @@ export class UsersService {
     return this.sanitize(saved);
   }
 
-  async update(id: number, payload: any, actor?: string) {
+  async update(id: string, payload: any, actor?: string) {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
 
@@ -146,7 +224,7 @@ export class UsersService {
     return this.sanitize(saved);
   }
 
-  async remove(id: number, actor?: string) {
+  async remove(id: string, actor?: string) {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     await this.auditService.log('user.deleted', {

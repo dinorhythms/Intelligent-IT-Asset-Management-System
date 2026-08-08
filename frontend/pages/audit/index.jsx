@@ -5,19 +5,30 @@ import { AccessDenied, Alert, EmptyState, PageHeader, Spinner } from '../../comp
 import Pill from '../../components/Pill';
 import { formatDateTime } from '../../lib/utils';
 
-const ACTION_TONE = {
-  CREATE: 'success',
-  UPDATE: 'info',
-  DELETE: 'danger',
-  LOGIN: 'info',
-};
-
-const ACTION_LABELS = {
-  CREATE: 'Created',
-  UPDATE: 'Updated',
-  DELETE: 'Deleted',
-  LOGIN: 'Logged in',
-};
+function actionParts(action) {
+  const [verb = '', noun = ''] = String(action || '')
+    .toUpperCase()
+    .split('.');
+  const tone =
+    verb === 'DELETE'
+      ? 'danger'
+      : verb === 'CREATE'
+        ? 'success'
+        : verb === 'UPDATE'
+          ? 'info'
+          : verb === 'AUTH'
+            ? 'info'
+            : 'neutral';
+  const label =
+    verb === 'DELETE'
+      ? 'Deleted'
+      : verb === 'CREATE'
+        ? 'Created'
+        : verb === 'UPDATE'
+          ? 'Updated'
+          : String(action || '').replace(/\./g, ' ') || 'Action';
+  return { tone, label };
+}
 
 export default function AuditPage() {
   const { can } = useAuth();
@@ -45,24 +56,25 @@ export default function AuditPage() {
   }, [can.audit, load]);
 
   const entities = useMemo(() => {
-    const set = new Set(logs.map((log) => log.entity || ''));
+    const set = new Set(logs.map((log) => log.entityType || ''));
     set.delete('');
     return ['', ...Array.from(set).sort()];
   }, [logs]);
 
   const filtered = useMemo(() => {
     return logs.filter((log) => {
-      const matchesEntity = !entityFilter || log.entity === entityFilter;
+      const matchesEntity = !entityFilter || log.entityType === entityFilter;
       const term = filter.toLowerCase();
       const matchesTerm =
         !term ||
         [
           log.action,
-          log.entity,
+          log.entityType,
           log.entityId,
-          log.username,
+          log.user,
+          log.actor,
           log.description,
-          log.changes,
+          log.details,
         ]
           .join(' ')
           .toLowerCase()
@@ -123,31 +135,32 @@ export default function AuditPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {filtered.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-800/40">
-                    <td className="py-3 pl-4 pr-4 whitespace-nowrap text-slate-400">
-                      {formatDateTime(log.createdAt || log.timestamp)}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <Pill tone={ACTION_TONE[log.action] || 'neutral'}>
-                        {ACTION_LABELS[log.action] || log.action}
-                      </Pill>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className="font-medium text-slate-200">{log.entity || '—'}</span>
-                      {log.entityId && <span className="ml-1 text-xs text-slate-500">#{log.entityId}</span>}
-                    </td>
-                    <td className="py-3 pr-4 text-slate-300">{log.username || '—'}</td>
-                    <td className="py-3 pr-4">
-                      <p className="text-slate-300">{log.description || '—'}</p>
-                      {log.changes && (
-                        <pre className="mt-1 max-h-24 overflow-auto rounded bg-slate-950/60 p-2 text-xs text-slate-400">
-                          {typeof log.changes === 'string' ? log.changes : JSON.stringify(log.changes, null, 2)}
-                        </pre>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((log) => {
+                  const { tone, label } = actionParts(log.action);
+                  return (
+                    <tr key={log.id} className="hover:bg-slate-800/40">
+                      <td className="py-3 pl-4 pr-4 whitespace-nowrap text-slate-400">
+                        {formatDateTime(log.createdAt || log.timestamp)}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <Pill tone={tone}>{label}</Pill>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <span className="font-medium capitalize text-slate-200">{log.entityType || '—'}</span>
+                        {log.entityId && <span className="ml-1 text-xs text-slate-500">#{log.entityId}</span>}
+                      </td>
+                      <td className="py-3 pr-4 text-slate-300">{log.user || log.actor || '—'}</td>
+                      <td className="py-3 pr-4">
+                        <p className="text-slate-300">{log.description || '—'}</p>
+                        {log.details && (
+                          <pre className="mt-1 max-h-24 overflow-auto rounded bg-slate-950/60 p-2 text-xs text-slate-400">
+                            {typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)}
+                          </pre>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

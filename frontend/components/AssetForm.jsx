@@ -6,25 +6,7 @@ const FALLBACK_CATEGORIES = ['Laptop', 'Printer', 'Server', 'Other'];
 
 const STATUS_OPTIONS = ['Available', 'Assigned', 'Returned'];
 
-const CATEGORY_PREFIXES = {
-  laptop: 'LAPTOP',
-  notebook: 'LAPTOP',
-  computer: 'LAPTOP',
-  printer: 'PRINTER',
-  server: 'SERVER',
-};
-
-function prefixForCategory(category) {
-  const normalized = (category || '').trim().toLowerCase();
-  if (CATEGORY_PREFIXES[normalized]) return CATEGORY_PREFIXES[normalized];
-  if (normalized) {
-    return (
-      normalized.replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').toUpperCase() ||
-      'ASSET'
-    );
-  }
-  return 'ASSET';
-}
+const CONDITION_OPTIONS = ['New', 'Good', 'Fair', 'Poor'];
 
 function toForm(asset) {
   return {
@@ -36,9 +18,11 @@ function toForm(asset) {
     macAddress: asset?.macAddress || '',
     vendorId: asset?.vendorId || '',
     deliveryDate: asset?.deliveryDate || '',
+    receivedById: asset?.receivedById || '',
     receivedBy: asset?.receivedBy || '',
     warranty: asset?.warranty || '',
     assetStatus: asset?.assetStatus || 'Available',
+    condition: asset?.condition || '',
     assetLocation: asset?.assetLocation || '',
     cost: asset?.cost ?? '',
     usage_hours: asset?.usageHours ?? '',
@@ -62,9 +46,10 @@ function toPayload(form, vendors) {
     vendorId: form.vendorId || undefined,
     vendor: vendor?.vendorName || undefined,
     deliveryDate: form.deliveryDate || undefined,
-    receivedBy: form.receivedBy || undefined,
+    receivedById: form.receivedById || undefined,
     warranty: form.warranty || undefined,
     assetStatus: form.assetStatus,
+    condition: form.condition || undefined,
     assetLocation: form.assetLocation || undefined,
     cost: form.cost === '' ? undefined : Number(form.cost),
     usage_hours: form.usage_hours === '' ? undefined : Number(form.usage_hours),
@@ -81,8 +66,20 @@ export default function AssetForm({ asset, onSubmit, onCancel, submitting }) {
   const [form, setForm] = useState(() => toForm(asset));
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
   const [vendors, setVendors] = useState([]);
+  const [receivers, setReceivers] = useState([]);
   const update = (key) => (event) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/users/receivers')
+      .then((data) => active && setReceivers(Array.isArray(data) ? data : []))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -122,12 +119,6 @@ export default function AssetForm({ asset, onSubmit, onCancel, submitting }) {
     onSubmit(toPayload(form, vendors));
   };
 
-  const idHint = asset
-    ? 'Auto-generated and immutable — cannot be changed after creation.'
-    : form.category
-      ? `Auto-generated as ${prefixForCategory(form.category)}-001, etc.`
-      : 'Auto-generated from the category (e.g. LAPTOP-001)';
-
   return (
     <form
       id="asset-form"
@@ -143,15 +134,6 @@ export default function AssetForm({ asset, onSubmit, onCancel, submitting }) {
             </option>
           ))}
         </SelectInput>
-      </Field>
-      <Field label="Asset ID" hint={idHint}>
-        <TextInput
-          value={asset?.assetId || form.assetId || ''}
-          placeholder="LAPTOP-001"
-          readOnly={Boolean(asset)}
-          disabled={Boolean(asset)}
-          className="w-full cursor-not-allowed rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none opacity-70 transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-        />
       </Field>
       <Field label="Make">
         <TextInput value={form.make} onChange={update('make')} placeholder="Dell" />
@@ -184,8 +166,29 @@ export default function AssetForm({ asset, onSubmit, onCancel, submitting }) {
       <Field label="Delivery Date">
         <DateInput value={form.deliveryDate} onChange={update('deliveryDate')} />
       </Field>
-      <Field label="Received By">
-        <TextInput value={form.receivedBy} onChange={update('receivedBy')} placeholder="admin" />
+      <Field
+        label="Received By"
+        hint="Admins and ICT/IT staff who received the asset"
+        required
+      >
+        <SelectInput
+          value={form.receivedById}
+          onChange={update('receivedById')}
+          required
+        >
+          <option value="">Select a receiver…</option>
+          {receivers.map((receiver) => {
+            const name =
+              [receiver.firstName, receiver.lastName].filter(Boolean).join(' ') ||
+              receiver.username;
+            return (
+              <option key={receiver.id} value={receiver.id}>
+                {name}
+                {receiver.department ? ` — ${receiver.department}` : ''}
+              </option>
+            );
+          })}
+        </SelectInput>
       </Field>
       <Field label="Warranty">
         <TextInput value={form.warranty} onChange={update('warranty')} placeholder="3 years" />
@@ -193,6 +196,17 @@ export default function AssetForm({ asset, onSubmit, onCancel, submitting }) {
       <Field label="Status">
         <SelectInput value={form.assetStatus} onChange={update('assetStatus')}>
           {STATUS_OPTIONS.map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </SelectInput>
+      </Field>
+      <Field
+        label="Condition"
+        hint="Lifecycle override (New/Good/Fair/Poor). Leave blank to auto-calculate."
+      >
+        <SelectInput value={form.condition} onChange={update('condition')}>
+          <option value="">Auto (New/Used)</option>
+          {CONDITION_OPTIONS.map((option) => (
             <option key={option} value={option}>{option}</option>
           ))}
         </SelectInput>

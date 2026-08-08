@@ -1,7 +1,7 @@
 export function Alert({ tone = 'error', children }) {
   const tones = {
-    error: 'border-red-500/40 bg-red-500/10 text-red-200',
-    success: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
+    error: 'border-[#991B1B]/40 bg-[#FEE2E2] text-[#991B1B]',
+    success: 'border-[#065F46]/40 bg-[#D1FAE5] text-[#065F46]',
     info: 'border-sky-500/40 bg-sky-500/10 text-sky-200',
   };
   if (!children) return null;

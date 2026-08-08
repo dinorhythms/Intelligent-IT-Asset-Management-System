@@ -1,9 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
-  ParseIntPipe,
   Post,
   Put,
   Query,
@@ -35,6 +35,24 @@ export class AssignmentController {
     return this.assignmentService.findAllMine(req.user?.username);
   }
 
+  @Get(':userId')
+  @Roles('admin', 'technician', 'staff')
+  @ApiOperation({
+    summary: 'Get the assets currently assigned to a user (by user ID)',
+  })
+  findByUserId(@Param('userId') userId: string) {
+    return this.assignmentService.findAllByUser(userId);
+  }
+
+  @Get('user/:userId')
+  @Roles('admin', 'technician', 'staff')
+  @ApiOperation({
+    summary: 'List currently assigned assets for a user by user ID',
+  })
+  findByUser(@Param('userId') userId: string) {
+    return this.assignmentService.findAllByUser(userId);
+  }
+
   @Post()
   @Roles('admin', 'technician')
   @ApiOperation({
@@ -50,13 +68,33 @@ export class AssignmentController {
     return this.assignmentService.create(body, req.user?.username);
   }
 
+  @Put(':id')
+  @Roles('admin', 'technician')
+  @ApiOperation({
+    summary: 'Update an assignment (e.g. notes, mark as returned)',
+  })
+  update(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.assignmentService.update(id, body, req.user?.username);
+  }
+
+  @Delete(':id')
+  @Roles('admin')
+  @ApiOperation({
+    summary: 'Delete an assignment',
+    description:
+      'Removes the assignment and returns the asset to Available status.',
+  })
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.assignmentService.remove(id, req.user?.username);
+  }
+
   @Put(':id/return')
   @Roles('admin', 'technician')
   @ApiOperation({
     summary: 'Mark an assigned asset as returned',
     description: 'Sets the assignment to returned and the asset status back to Available.',
   })
-  returnAsset(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+  returnAsset(@Param('id') id: string, @Req() req: any) {
     return this.assignmentService.returnAsset(id, req.user?.username);
   }
 }

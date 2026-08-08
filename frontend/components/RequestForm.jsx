@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../lib/api';
 import { Field, NumberInput, SelectInput, TextInput } from './Fields';
 
 const PRIORITY_OPTIONS = ['normal', 'urgent', 'high', 'low'];
@@ -23,8 +24,27 @@ function toPayload(form) {
 
 export default function RequestForm({ request, onSubmit, onCancel, submitting }) {
   const [form, setForm] = useState(() => toForm(request));
+  const [categories, setCategories] = useState([]);
   const update = (key) => (event) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/categories?status=active')
+      .then((data) => {
+        if (!active) return;
+        const list = Array.isArray(data) ? data : [];
+        if (list.length > 0) {
+          const names = list.map((item) => item.categoryName);
+          setCategories(names);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -40,15 +60,17 @@ export default function RequestForm({ request, onSubmit, onCancel, submitting })
       <div className="col-span-1 sm:col-span-2">
         <Field
           label="Device category"
-          hint="What type of device do you need? (Laptop, Printer, Server, etc.)"
+          hint="What type of device do you need?"
           required
         >
-          <TextInput
-            value={form.category}
-            onChange={update('category')}
-            placeholder="Laptop / Printer / Server"
-            required
-          />
+          <SelectInput value={form.category} onChange={update('category')} required>
+            <option value="">Select a category…</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
       </div>
       <Field label="Quantity" required>
@@ -71,22 +93,6 @@ export default function RequestForm({ request, onSubmit, onCancel, submitting })
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none transition focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
           />
         </Field>
-      </div>
-      <div className="col-span-1 sm:col-span-2 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
-        >
-          {submitting ? 'Saving…' : request ? 'Save Changes' : 'Submit request'}
-        </button>
       </div>
     </form>
   );

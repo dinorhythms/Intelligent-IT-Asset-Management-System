@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { CategoryEntity } from './category.entity';
@@ -16,19 +17,6 @@ export class CategoryService {
     private readonly categoryRepository: Repository<CategoryEntity>,
     private readonly auditService: AuditService,
   ) {}
-
-  private async nextCategoryId(): Promise<string> {
-    const categories = await this.categoryRepository.find();
-    let max = 0;
-    for (const category of categories) {
-      const match = category.categoryId.match(/^CAT-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > max) max = num;
-      }
-    }
-    return `CAT-${String(max + 1).padStart(3, '0')}`;
-  }
 
   async findAll(status?: string) {
     const where = status ? { status } : {};
@@ -55,7 +43,7 @@ export class CategoryService {
     }
 
     const category = this.categoryRepository.create({
-      categoryId: body.categoryId || (await this.nextCategoryId()),
+      categoryId: body.categoryId || randomUUID(),
       categoryName,
       description: body.description,
       status: body.status || 'active',

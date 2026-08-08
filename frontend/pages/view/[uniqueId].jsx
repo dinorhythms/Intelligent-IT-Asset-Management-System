@@ -119,6 +119,9 @@ export default function AssetViewPage() {
                   {assignment.department && (
                     <p className="mt-0.5 text-sm text-slate-400">{assignment.department}</p>
                   )}
+                  {assignment.email && (
+                    <p className="mt-0.5 text-sm text-slate-400">{assignment.email}</p>
+                  )}
                   <p className="mt-1 text-xs text-slate-500">
                     Assigned {formatDate(assignment.assignedAt)}
                     {assignment.assignedBy ? ` by ${assignment.assignedBy}` : ''}

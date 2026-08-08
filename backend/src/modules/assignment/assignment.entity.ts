@@ -8,8 +8,8 @@ import {
 
 @Entity('assignments')
 export class AssignmentEntity {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ nullable: true })
   assignmentId: string;
@@ -20,8 +20,8 @@ export class AssignmentEntity {
   @Column({ nullable: true })
   assetName: string;
 
-  @Column({ nullable: true })
-  userId: number;
+  @Column({ type: 'uuid', nullable: true })
+  userId: string;
 
   @Column()
   userName: string;
@@ -43,6 +43,21 @@ export class AssignmentEntity {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   assignedAt: Date;
+
+  @Column({ nullable: true })
+  returnInitiatedBy: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  returnInitiatedAt: Date;
+
+  @Column({ type: 'text', nullable: true })
+  returnReason: string;
+
+  @Column({ nullable: true })
+  returnConfirmedBy: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  returnConfirmedAt: Date;
 
   @Column({ type: 'timestamp', nullable: true })
   returnedAt: Date;

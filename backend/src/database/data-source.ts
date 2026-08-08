@@ -7,6 +7,7 @@ import { AssignmentEntity } from '../modules/assignment/assignment.entity';
 import { AuditLogEntity } from '../modules/audit/audit-log.entity';
 import { UserEntity } from '../modules/auth/user.entity';
 import { CategoryEntity } from '../modules/category/category.entity';
+import { DepartmentEntity } from '../modules/department/department.entity';
 import { NotificationEntity } from '../modules/notifications/notification.entity';
 import { RequestEntity } from '../modules/request/request.entity';
 import { ServiceEntity } from '../modules/service/service.entity';
@@ -33,6 +34,7 @@ export const AppDataSource = new DataSource({
     AssignmentEntity,
     CategoryEntity,
     VendorEntity,
+    DepartmentEntity,
   ],
   synchronize: true,
   logging: false,

@@ -41,6 +41,17 @@ export class ServiceController {
     return this.serviceService.findMine(req.user?.username);
   }
 
+  @Get('overdue')
+  @Roles('admin', 'technician')
+  @ApiOperation({
+    summary: 'List vendor service records whose expected return date has passed',
+    description:
+      'Returns service records that were sent to a vendor with an expected_return_date in the past and are not yet completed/cancelled, so the service page can flag them as overdue.',
+  })
+  findOverdue() {
+    return this.serviceService.findOverdue();
+  }
+
   @Get('asset/:assetId')
   @Roles('admin', 'technician')
   @ApiOperation({

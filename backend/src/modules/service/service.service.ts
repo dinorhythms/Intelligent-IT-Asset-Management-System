@@ -14,7 +14,12 @@ import { PredictiveResultEntity } from '../analytics/predictive-result.entity';
 import { AuditService } from '../audit/audit.service';
 import { UserEntity } from '../auth/user.entity';
 import { MailerService } from '../mailer/mailer.service';
+import { VendorEntity } from '../vendor/vendor.entity';
 import { ServiceEntity } from './service.entity';
+
+const ASSET_STATUS_AVAILABLE = 'Available';
+const ASSET_STATUS_IN_SERVICE = 'In Service';
+const COMPLETED_STATUSES = ['completed', 'cancelled'];
 
 @Injectable()
 export class ServiceService {
@@ -31,15 +36,55 @@ export class ServiceService {
     private readonly predictiveRepository: Repository<PredictiveResultEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+    @InjectRepository(VendorEntity)
+    private readonly vendorRepository: Repository<VendorEntity>,
     private readonly aiService: AiService,
     private readonly auditService: AuditService,
     private readonly mailerService: MailerService,
   ) {}
 
+  private async enrich(service: ServiceEntity) {
+    const [asset, vendor] = await Promise.all([
+      service.assetId
+        ? this.assetRepository
+            .findOne({ where: { assetId: service.assetId } })
+            .catch(() => null)
+        : null,
+      service.vendorId
+        ? this.vendorRepository
+            .findOne({ where: { vendorId: service.vendorId } })
+            .catch(() => null)
+        : null,
+    ]);
+    return {
+      ...service,
+      assetName: asset?.assetName || null,
+      vendorName: vendor?.vendorName || null,
+    };
+  }
+
+  private async setAssetServiceStatus(
+    assetId: string | null | undefined,
+    status: string,
+  ) {
+    if (!assetId) return;
+    const asset = await this.assetRepository
+      .findOne({ where: { assetId } })
+      .catch(() => null);
+    if (asset) {
+      asset.assetStatus = status;
+      await this.assetRepository.save(asset);
+      this.logger.log(
+        `[service] Asset ${asset.assetId} status set to ${status}`,
+      );
+    }
+  }
+
   async findAll() {
-    return this.serviceRepository.find({
+    const list = await this.serviceRepository.find({
       order: { createdAt: 'DESC' },
     });
+    return Promise.all(list.map((service) => this.enrich(service)));
   }
 
   async findMine(username: string) {
@@ -48,22 +93,47 @@ export class ServiceService {
     });
     const assetIds = assignments.map((assignment) => assignment.assetId);
     if (assetIds.length === 0) return [];
-    return this.serviceRepository
+    const list = await this.serviceRepository
       .createQueryBuilder('service')
       .where('service.assetId IN (:...assetIds)', { assetIds })
       .orderBy('service.createdAt', 'DESC')
       .getMany();
+    return Promise.all(list.map((service) => this.enrich(service)));
   }
 
   async findByAsset(assetId: string) {
-    return this.serviceRepository.find({
+    const list = await this.serviceRepository.find({
       where: { assetId },
       order: { serviceDate: 'DESC' },
     });
+    return Promise.all(list.map((service) => this.enrich(service)));
   }
 
   async findOne(id: string) {
-    return this.serviceRepository.findOne({ where: { serviceId: id } });
+    const service = await this.serviceRepository.findOne({
+      where: { serviceId: id },
+    });
+    return service ? this.enrich(service) : null;
+  }
+
+  async findOverdue() {
+    const list = await this.serviceRepository.find({
+      order: { createdAt: 'DESC' },
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const overdue = list.filter(
+      (service) =>
+        service.vendorId &&
+        service.expectedReturnDate &&
+        service.expectedReturnDate < today &&
+        !COMPLETED_STATUSES.includes((service.serviceStatus || '').toLowerCase()),
+    );
+    return Promise.all(
+      overdue.map(async (service) => ({
+        ...(await this.enrich(service)),
+        overdue: true,
+      })),
+    );
   }
 
   private async validateTechnician(technician?: string): Promise<void> {
@@ -112,7 +182,17 @@ export class ServiceService {
         `Technician: ${saved.technician || '—'}`,
         `Status: ${saved.serviceStatus}`,
         `Date: ${saved.serviceDate || '—'}`,
-      ],
+        saved.expectedReturnDate
+          ? `Expected return from vendor: ${saved.expectedReturnDate}`
+          : '',
+      ].filter(Boolean),
+    );
+    const completed = COMPLETED_STATUSES.includes(
+      (saved.serviceStatus || '').toLowerCase(),
+    );
+    await this.setAssetServiceStatus(
+      saved.assetId,
+      completed ? ASSET_STATUS_AVAILABLE : ASSET_STATUS_IN_SERVICE,
     );
     void this.runSchedulePipeline(saved, body);
     return saved;
@@ -155,8 +235,18 @@ export class ServiceService {
         `Asset: ${saved.assetId || '—'}`,
         `Technician: ${saved.technician || '—'}`,
         `Status: ${saved.serviceStatus}`,
+        saved.expectedReturnDate
+          ? `Expected return from vendor: ${saved.expectedReturnDate}`
+          : '',
         `Next maintenance date is being recalculated.`,
-      ],
+      ].filter(Boolean),
+    );
+    const completed = COMPLETED_STATUSES.includes(
+      (saved.serviceStatus || '').toLowerCase(),
+    );
+    await this.setAssetServiceStatus(
+      saved.assetId,
+      completed ? ASSET_STATUS_AVAILABLE : ASSET_STATUS_IN_SERVICE,
     );
     void this.runSchedulePipeline(saved, body);
     return saved;

@@ -10,6 +10,7 @@ import { MailerModule } from '../mailer/mailer.module';
 import { ServiceController } from './service.controller';
 import { ServiceEntity } from './service.entity';
 import { ServiceService } from './service.service';
+import { VendorEntity } from '../vendor/vendor.entity';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ServiceService } from './service.service';
       AssignmentEntity,
       PredictiveResultEntity,
       UserEntity,
+      VendorEntity,
     ]),
     AiModule,
     AuditModule,

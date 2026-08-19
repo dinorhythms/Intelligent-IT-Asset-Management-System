@@ -116,6 +116,15 @@ export class UsersService {
       .map((user) => this.sanitize(user));
   }
 
+  async findStaff() {
+    const users = await this.userRepository.find({
+      order: { firstName: 'ASC' },
+    });
+    return users
+      .filter((user) => user.role === 'staff')
+      .map((user) => this.sanitize(user));
+  }
+
   async findByUsername(username: string) {
     const user = await this.userRepository.findOne({
       where: { username },

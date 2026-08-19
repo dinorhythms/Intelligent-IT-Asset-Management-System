@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { Field, NumberInput, SelectInput, TextInput } from './Fields';
 
@@ -10,6 +11,7 @@ function toForm(request) {
     qty: request?.qty ?? 1,
     requestPriority: request?.requestPriority || 'normal',
     reason: request?.reason || '',
+    requestedBy: request?.requestedBy || '',
   };
 }
 
@@ -19,12 +21,16 @@ function toPayload(form) {
     qty: Number(form.qty) || 1,
     requestPriority: form.requestPriority,
     reason: form.reason || undefined,
+    requestedBy: form.requestedBy || undefined,
   };
 }
 
 export default function RequestForm({ request, onSubmit, onCancel, submitting }) {
+  const { user } = useAuth();
+  const isAdminTech = ['admin', 'technician'].includes(user?.role);
   const [form, setForm] = useState(() => toForm(request));
   const [categories, setCategories] = useState([]);
+  const [staff, setStaff] = useState([]);
   const update = (key) => (event) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
 
@@ -46,6 +52,18 @@ export default function RequestForm({ request, onSubmit, onCancel, submitting })
     };
   }, []);
 
+  useEffect(() => {
+    if (!isAdminTech) return;
+    let active = true;
+    api
+      .get('/users/staff')
+      .then((data) => active && setStaff(Array.isArray(data) ? data : []))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isAdminTech]);
+
   const handleSubmit = (event) => {
     event.preventDefault();
     onSubmit(toPayload(form));
@@ -60,7 +78,11 @@ export default function RequestForm({ request, onSubmit, onCancel, submitting })
       <div className="col-span-1 sm:col-span-2">
         <Field
           label="Device category"
-          hint="What type of device do you need?"
+          hint={
+            isAdminTech
+              ? 'What type of device is needed?'
+              : 'What type of device do you need?'
+          }
           required
         >
           <SelectInput value={form.category} onChange={update('category')} required>
@@ -73,6 +95,29 @@ export default function RequestForm({ request, onSubmit, onCancel, submitting })
           </SelectInput>
         </Field>
       </div>
+      {isAdminTech && (
+        <div className="col-span-1 sm:col-span-2">
+          <Field
+            label="Requested for (Staff)"
+            hint="Submit this request on behalf of a staff member. Leave blank to keep yourself as the requester."
+          >
+            <SelectInput value={form.requestedBy} onChange={update('requestedBy')}>
+              <option value="">Myself</option>
+              {staff.map((member) => {
+                const name =
+                  [member.firstName, member.lastName].filter(Boolean).join(' ') ||
+                  member.username;
+                return (
+                  <option key={member.id} value={member.username}>
+                    {name}
+                    {member.department ? ` — ${member.department}` : ''}
+                  </option>
+                );
+              })}
+            </SelectInput>
+          </Field>
+        </div>
+      )}
       <Field label="Quantity" required>
         <NumberInput value={form.qty} onChange={update('qty')} min={1} />
       </Field>

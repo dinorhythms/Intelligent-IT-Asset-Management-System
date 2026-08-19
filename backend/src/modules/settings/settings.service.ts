@@ -10,6 +10,8 @@ import { SettingsEntity } from './settings.entity';
 export const DEFAULT_QR_BASE_URL = 'http://localhost:3000';
 export const QR_BASE_URL_KEY = 'qrBaseUrl';
 export const THEME_KEY = 'theme';
+export const CURRENCY_KEY = 'currency';
+export const DEFAULT_CURRENCY = 'NGN';
 
 export interface SmtpSettingsView {
   smtpHost: string;
@@ -75,6 +77,11 @@ export class SettingsService {
     return { theme: value };
   }
 
+  async getCurrency(): Promise<string> {
+    const stored = (await this.get(CURRENCY_KEY, DEFAULT_CURRENCY)).trim();
+    return stored.toUpperCase() || DEFAULT_CURRENCY;
+  }
+
   async getSettings() {
     const entries = await this.settingsRepository.find().catch(() => []);
     const settings: Record<string, string> = {};
@@ -82,6 +89,7 @@ export class SettingsService {
       settings[entry.key] = entry.value;
     }
     settings[QR_BASE_URL_KEY] = await this.getQrBaseUrl();
+    settings[CURRENCY_KEY] = await this.getCurrency();
     return settings;
   }
 

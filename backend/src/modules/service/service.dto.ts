@@ -6,6 +6,12 @@ export class CreateServiceDto {
   @ApiProperty({ example: 'AST-1002' }) assetId: string;
   @ApiPropertyOptional({ example: 'VEND-001' }) vendorId?: string;
   @ApiProperty({ example: '2026-08-02', format: 'date' }) serviceDate: string;
+  @ApiPropertyOptional({
+    example: '2026-08-20',
+    format: 'date',
+    description: 'When the vendor is expected to return the asset',
+  })
+  expectedReturnDate?: string;
   @ApiProperty({ example: 'Ada Okafor' }) technician: string;
   @ApiProperty({ example: 125000 }) cost: number;
   @ApiProperty({ example: 'Replaced fan and cleaned vents.' }) notes: string;

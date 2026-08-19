@@ -29,13 +29,19 @@ export function formatNumber(value, digits = 1) {
   return num.toFixed(digits);
 }
 
+let currencyCode = 'NGN';
+
+export function setCurrencyCode(code) {
+  currencyCode = (code || 'NGN').trim().toUpperCase() || 'NGN';
+}
+
 export function formatCurrency(value) {
   if (value === null || value === undefined || value === '') return '—';
   const num = Number(value);
   if (Number.isNaN(num)) return '—';
   return num.toLocaleString(undefined, {
     style: 'currency',
-    currency: 'USD',
+    currency: currencyCode,
   });
 }
 

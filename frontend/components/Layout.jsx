@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { initials } from '../lib/utils';
+import { api } from '../lib/api';
+import { initials, setCurrencyCode } from '../lib/utils';
 
 const NAV_ITEMS = [
   {
@@ -88,6 +90,13 @@ export default function Layout({ children }) {
   const router = useRouter();
   const { user, logout, isAuthenticated, loading } = useAuth();
   const { theme, toggle } = useTheme();
+
+  useEffect(() => {
+    api
+      .get('/settings')
+      .then((settings) => setCurrencyCode(settings?.currency))
+      .catch(() => {});
+  }, []);
 
   if (!loading && !isAuthenticated) {
     return null;

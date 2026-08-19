@@ -8,8 +8,8 @@ yarn-error.log*
 *.tsbuildinfo
 
 # --- Node / NextJS ---
-.next
-.next-dev
+.next/
+.next-dev/
 
 # --- Python / Flask (ai-service) ---
 __pycache__/

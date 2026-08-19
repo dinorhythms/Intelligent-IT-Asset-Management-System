@@ -2,9 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { AccessDenied, Alert, GhostButton, PageHeader, PrimaryButton, Spinner } from '../../components/Ui';
-import { Field, NumberInput, TextInput } from '../../components/Fields';
+import { Field, NumberInput, SelectInput, TextInput } from '../../components/Fields';
 
 const DEFAULT_BASE_URL = 'http://localhost:3000';
+
+const CURRENCY_OPTIONS = [
+  { code: 'NGN', label: '₦ — Nigerian Naira' },
+  { code: 'USD', label: '$ — US Dollar' },
+  { code: 'GBP', label: '£ — British Pound' },
+  { code: 'EUR', label: '€ — Euro' },
+  { code: 'GHS', label: '₵ — Ghanaian Cedi' },
+  { code: 'KES', label: 'KSh — Kenyan Shilling' },
+  { code: 'ZAR', label: 'R — South African Rand' },
+];
 
 const EMPTY_SMTP = {
   smtpHost: '',
@@ -20,6 +30,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testingSmtp, setTestingSmtp] = useState(false);
   const [qrBaseUrl, setQrBaseUrl] = useState('');
+  const [currency, setCurrency] = useState('NGN');
   const [smtp, setSmtp] = useState(EMPTY_SMTP);
   const [smtpConfigured, setSmtpConfigured] = useState(false);
   const [testRecipient, setTestRecipient] = useState('');
@@ -29,11 +40,13 @@ export default function SettingsPage() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const [baseUrlData, smtpData] = await Promise.all([
+      const [baseUrlData, smtpData, settingsData] = await Promise.all([
         api.get('/settings/baseurl').catch(() => api.get('/settings')),
         api.get('/settings/smtp').catch(() => null),
+        api.get('/settings').catch(() => null),
       ]);
       setQrBaseUrl(baseUrlData?.qrBaseUrl || DEFAULT_BASE_URL);
+      if (settingsData?.currency) setCurrency(settingsData.currency.toUpperCase());
       if (smtpData) {
         setSmtp((prev) => ({
           ...prev,
@@ -71,7 +84,10 @@ export default function SettingsPage() {
     setError('');
     setNotice('');
     try {
-      const result = await api.put('/settings', { qrBaseUrl: qrBaseUrl.trim() });
+      const result = await api.put('/settings', {
+        qrBaseUrl: qrBaseUrl.trim(),
+        currency,
+      });
       setNotice(
         typeof result?.qrCodesRegenerated === 'number' && result.qrCodesRegenerated > 0
           ? `QR base URL updated and ${result.qrCodesRegenerated} QR codes regenerated.`
@@ -154,6 +170,23 @@ export default function SettingsPage() {
             required
           />
         </Field>
+        <div className="mt-4">
+          <Field
+            label="Currency"
+            hint="Used to format costs and valuations across the dashboard. Defaults to Nigerian Naira (₦)."
+          >
+            <SelectInput
+              value={currency}
+              onChange={(event) => setCurrency(event.target.value.toUpperCase())}
+            >
+              {CURRENCY_OPTIONS.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {option.label}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+        </div>
         <div className="mt-5">
           <PrimaryButton type="submit" disabled={saving || !qrBaseUrl.trim()}>
             {saving ? 'Saving…' : 'Save settings'}

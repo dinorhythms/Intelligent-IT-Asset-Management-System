@@ -52,6 +52,15 @@ export class UsersController {
     return this.usersService.findTechnicians();
   }
 
+  @Get('staff')
+  @Roles('admin', 'technician')
+  @ApiOperation({
+    summary: 'List staff members so admins can create a request on their behalf',
+  })
+  findStaff() {
+    return this.usersService.findStaff();
+  }
+
   @Post()
   @Roles('admin')
   @ApiOperation({ summary: 'Create a new user (Admin only)' })

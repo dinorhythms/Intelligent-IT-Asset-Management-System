@@ -35,6 +35,9 @@ export class ServiceEntity {
   @Column({ type: 'date', nullable: true })
   serviceDate: string;
 
+  @Column({ type: 'date', nullable: true })
+  expectedReturnDate: string;
+
   @Column({ nullable: true })
   technician: string;
 

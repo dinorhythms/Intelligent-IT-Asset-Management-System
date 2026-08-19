@@ -11,6 +11,7 @@ function toForm(service) {
     serviceDesc: service?.serviceDesc || '',
     assetId: service?.assetId || '',
     vendorId: service?.vendorId || '',
+    expectedReturnDate: service?.expectedReturnDate || '',
     serviceDate: service?.serviceDate || '',
     technician: service?.technician || '',
     cost: service?.cost ?? '',
@@ -27,6 +28,7 @@ function toPayload(form, service) {
     serviceDesc: form.serviceDesc,
     assetId: form.assetId,
     vendorId: form.vendorId || undefined,
+    expectedReturnDate: form.vendorId ? form.expectedReturnDate || undefined : undefined,
     serviceDate: form.serviceDate || undefined,
     technician: form.technician,
     cost: form.cost === '' ? undefined : Number(form.cost),
@@ -118,6 +120,18 @@ export default function ServiceForm({ service, assets = [], onSubmit, onCancel, 
           ))}
         </SelectInput>
       </Field>
+      {form.vendorId && (
+        <Field
+          label="Expected return date"
+          hint="When the vendor should return the asset. Past-due records are flagged as overdue."
+        >
+          <DateInput
+            value={form.expectedReturnDate}
+            onChange={update('expectedReturnDate')}
+            min={form.serviceDate || undefined}
+          />
+        </Field>
+      )}
       <Field label="Service Date">
         <DateInput value={form.serviceDate} onChange={update('serviceDate')} />
       </Field>

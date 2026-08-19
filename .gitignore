@@ -10,6 +10,7 @@ yarn-error.log*
 # --- Node / NextJS ---
 .next/
 .next-dev/
+.env.local
 
 # --- Python / Flask (ai-service) ---
 __pycache__/

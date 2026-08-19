@@ -1,22 +1,27 @@
-echo {^
-  "services": {^
-    "backend": {^
-      "path": "backend",^
-      "start": "npm run start:dev",^
-      "env": "node"^
-    },^
-    "frontend": {^
-      "path": "frontend",^
-      "start": "npm run dev",^
-      "env": "node"^
-    },^
-    "ai-service": {^
-      "path": "ai-service",^
-      "start": "python app.py",^
-      "env": "python"^
-    },^
-    "database": {^
-      "plugin": "postgresql"^
-    }^
-  }^
-} > railway.json
+{
+  "services": {
+    "backend": {
+      "path": "backend",
+      "start": "npm run start:dev",
+      "env": "node"
+    },
+    "frontend": {
+      "path": "frontend",
+      "start": "npm run dev",
+      "env": "node"
+    },
+    "electron": {
+      "path": "electron",
+      "start": "npm run start",
+      "env": "node"
+    },
+    "ai-service": {
+      "path": "ai-service",
+      "start": "python app.py",
+      "env": "python"
+    },
+    "database": {
+      "plugin": "postgresql"
+    }
+  }
+}

@@ -24,6 +24,8 @@ async function seedUser(
   password: string,
 ) {
   const existing = await userRepository.findOne({ where: { username } });
+  if (existing) return existing;
+
   const passwordHash = await bcrypt.hash(password, 10);
   const payload = {
     ...data,
@@ -31,9 +33,7 @@ async function seedUser(
     passwordHash,
     loginStatus: 'active',
   };
-  return userRepository.save(
-    existing ? { ...existing, ...payload } : userRepository.create(payload),
-  );
+  return userRepository.save(userRepository.create(payload));
 }
 
 async function seedAsset(assetRepository: any, data: any) {
@@ -42,8 +42,23 @@ async function seedAsset(assetRepository: any, data: any) {
   return assetRepository.save(assetRepository.create(data));
 }
 
-async function seed() {
-  await AppDataSource.initialize();
+function getSeedPassword(
+  environmentVariable: string,
+  developmentDefault: string,
+) {
+  const password = process.env[environmentVariable];
+  const requiresExplicitPassword =
+    process.env.NODE_ENV === 'production' ||
+    process.env.SEED_ON_START === 'true';
+  if (requiresExplicitPassword && !password) {
+    throw new Error(
+      `${environmentVariable} must be set when seeding at startup or in production.`,
+    );
+  }
+  return password || developmentDefault;
+}
+
+async function seedRecords() {
   const userRepository = AppDataSource.getRepository(UserEntity);
   const assetRepository = AppDataSource.getRepository(AssetEntity);
   const serviceRepository = AppDataSource.getRepository(ServiceEntity);
@@ -70,7 +85,7 @@ async function seed() {
       phoneNumber: '+2348000000001',
       role: 'admin',
     },
-    'admin123',
+    getSeedPassword('SEED_ADMIN_PASSWORD', 'admin123'),
   );
   await seedUser(
     userRepository,
@@ -84,7 +99,7 @@ async function seed() {
       phoneNumber: '+2348000000002',
       role: 'technician',
     },
-    'tech123',
+    getSeedPassword('SEED_TECH_PASSWORD', 'tech123'),
   );
   await seedUser(
     userRepository,
@@ -98,7 +113,7 @@ async function seed() {
       phoneNumber: '+2348000000003',
       role: 'staff',
     },
-    'staff123',
+    getSeedPassword('SEED_STAFF_PASSWORD', 'staff123'),
   );
 
   const qrBaseUrl = (await settingsRepository.findOne({ where: { key: QR_BASE_URL_KEY } }))?.value || DEFAULT_QR_BASE_URL;
@@ -115,7 +130,9 @@ async function seed() {
     { categoryId: randomUUID(), categoryName: 'Network', description: 'Switches, routers and networking hardware', status: 'active' },
   ];
   for (const seed of categorySeeds) {
-    const existing = await categoryRepository.findOne({ where: { categoryId: seed.categoryId } });
+    const existing = await categoryRepository.findOne({
+      where: { categoryName: seed.categoryName },
+    });
     if (!existing) {
       await categoryRepository.save(categoryRepository.create(seed));
     }
@@ -151,7 +168,9 @@ async function seed() {
     },
   ];
   for (const seed of vendorSeeds) {
-    const existing = await vendorRepository.findOne({ where: { vendorId: seed.vendorId } });
+    const existing = await vendorRepository.findOne({
+      where: { vendorName: seed.vendorName },
+    });
     if (!existing) {
       await vendorRepository.save(vendorRepository.create(seed));
     }
@@ -319,10 +338,22 @@ async function seed() {
   }
 
   console.log('Seed completed');
-  await AppDataSource.destroy();
 }
 
-seed().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+export async function seedDatabase() {
+  try {
+    await AppDataSource.initialize();
+    await seedRecords();
+  } finally {
+    if (AppDataSource.isInitialized) {
+      await AppDataSource.destroy();
+    }
+  }
+}
+
+if (require.main === module) {
+  seedDatabase().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

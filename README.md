@@ -28,6 +28,19 @@ This workspace contains a complete starter project for an Intelligent IT Asset M
 ## Database
 Use the SQL schema from db/schema.sql with PostgreSQL.
 
+### Seeding
+
+The backend can seed the database at startup when `SEED_ON_START=true`. On
+Render, set this variable and `SEED_ADMIN_PASSWORD`, `SEED_TECH_PASSWORD`, and
+`SEED_STAFF_PASSWORD` to strong passwords for the initial seed, then disable
+`SEED_ON_START` after the seed completes. Startup seeding requires explicit
+passwords; existing users' passwords are not overwritten, and seeded categories
+and vendors are not duplicated on reruns.
+
+For local startup seeding, set `SEED_ON_START=true` and the three passwords in
+`backend/.env`. Alternatively, run `npm --prefix backend run seed` to use the
+development seed passwords.
+
 ## AI service (predictive maintenance)
 
 The Python/Flask microservice in `ai-service/` provides predictive scoring,

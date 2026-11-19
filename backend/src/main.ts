@@ -5,9 +5,15 @@ import 'dotenv/config';
 import 'reflect-metadata';
 import { AppModule } from './app.module';
 import { AppDataSource } from './database/data-source';
+import { seedDatabase } from './database/seed';
 
 async function bootstrap() {
   try {
+    if (process.env.SEED_ON_START === 'true') {
+      console.log('[startup] SEED_ON_START is enabled; seeding database...');
+      await seedDatabase();
+    }
+
     console.log('[startup] Initializing database connection...');
     await AppDataSource.initialize().catch((error: unknown) => {
       console.warn('[startup] Database initialization warning:', error);

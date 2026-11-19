@@ -58,6 +58,35 @@ function getSeedPassword(
   return password || developmentDefault;
 }
 
+async function ensureSeedSchema() {
+  const existingTables: Array<{ table_name: string }> = await AppDataSource.query(
+    `SELECT table_name
+     FROM information_schema.tables
+     WHERE table_schema = current_schema()
+       AND table_type = 'BASE TABLE'`,
+  );
+
+  if (existingTables.length === 0) {
+    console.log('[seed] Empty database detected; creating entity schema...');
+    await AppDataSource.synchronize();
+    return;
+  }
+
+  const existingTableNames = new Set(
+    existingTables.map(({ table_name }) => table_name),
+  );
+  const missingTables = AppDataSource.entityMetadatas
+    .map(({ tableName }) => tableName)
+    .filter((tableName) => !existingTableNames.has(tableName));
+
+  if (missingTables.length > 0) {
+    throw new Error(
+      `Cannot seed because the database is missing tables: ${missingTables.join(', ')}. ` +
+        'Existing tables were found, so automatic schema synchronization was skipped to protect existing data.',
+    );
+  }
+}
+
 async function seedRecords() {
   const userRepository = AppDataSource.getRepository(UserEntity);
   const assetRepository = AppDataSource.getRepository(AssetEntity);
@@ -343,6 +372,7 @@ async function seedRecords() {
 export async function seedDatabase() {
   try {
     await AppDataSource.initialize();
+    await ensureSeedSchema();
     await seedRecords();
   } finally {
     if (AppDataSource.isInitialized) {

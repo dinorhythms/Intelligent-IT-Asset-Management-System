@@ -14,13 +14,22 @@ import { ServiceEntity } from '../modules/service/service.entity';
 import { SettingsEntity } from '../modules/settings/settings.entity';
 import { VendorEntity } from '../modules/vendor/vendor.entity';
 
+const isProduction = process.env.NODE_ENV === 'production';
+const databaseHost = process.env.DB_HOST || 'localhost';
+const useSsl =
+  process.env.DB_SSL === 'true' ||
+  (process.env.DB_SSL !== 'false' &&
+    (isProduction ||
+      !['localhost', '127.0.0.1', '::1'].includes(databaseHost.toLowerCase())));
+
 export const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
+  host: databaseHost,
   port: Number(process.env.DB_PORT || 5432),
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_DATABASE || 'it_asset_db',
+  ssl: useSsl ? { rejectUnauthorized: false } : false,
   entities: [
     UserEntity,
     AssetEntity,
@@ -36,6 +45,6 @@ export const AppDataSource = new DataSource({
     VendorEntity,
     DepartmentEntity,
   ],
-  synchronize: true,
-  logging: false,
+  synchronize: isProduction ? false : true, // safer in prod, auto-sync in dev
+  logging: isProduction ? false : true,     // quiet in prod, verbose in dev
 });
